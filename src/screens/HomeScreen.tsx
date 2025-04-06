@@ -33,6 +33,7 @@ import {useCart} from '../contexts/CartContext';
 import {useDisplayName} from '../contexts/DisplayNameContext';
 import {LayoutWrapper} from '../components/AppLayout';
 import QuantitySelectorModal from '../components/QuantitySelectorModal';
+import {useNetwork} from '../contexts/NetworkContext';
 
 interface HomeScreenParams {
   initialLogin?: boolean;
@@ -113,6 +114,8 @@ const HomeScreen: React.FC = () => {
     customerID?: string | number;
     item_marks: string;
   } | null>(null);
+  const {isConnected, addRetryCallback, removeRetryCallback} = useNetwork();
+  const [wasDisconnected, setWasDisconnected] = useState(false);
 
   const {cartItems, clearCart} = useCart() || {};
   const cartItemCount = cartItems?.length || 0;
@@ -565,6 +568,40 @@ const HomeScreen: React.FC = () => {
     };
     loadImageMappings();
   }, []);
+
+  // Register data refresh callback when network is restored
+  useEffect(() => {
+    // If we have a CustomerID, register a callback to refetch data
+    if (CustomerID) {
+      const refreshData = () => {
+        console.log('Network restored, refreshing home screen data...');
+        fetchCategories(CustomerID);
+        if (searchQuery.trim()) {
+          searchItems(searchQuery);
+        }
+      };
+      
+      // Register the callback
+      addRetryCallback('homescreen-refresh', refreshData);
+      
+      // Cleanup - remove the callback when component unmounts
+      return () => {
+        removeRetryCallback('homescreen-refresh');
+      };
+    }
+  }, [CustomerID, searchQuery, addRetryCallback, removeRetryCallback, fetchCategories, searchItems]);
+
+  // Monitor network connectivity changes for UI feedback
+  useEffect(() => {
+    if (isConnected === false) {
+      // Network is disconnected
+      setWasDisconnected(true);
+    } else if (isConnected === true && wasDisconnected) {
+      // Network was disconnected before but now connected again
+      // UI will update automatically via the callback
+      setWasDisconnected(false);
+    }
+  }, [isConnected, wasDisconnected]);
 
   return (
     <LayoutWrapper
