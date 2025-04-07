@@ -56,25 +56,54 @@ const Header: React.FC<HeaderProps> = ({
     route.name !== 'Orders' && 
     route.name !== 'OrdersHome';
 
+  // Only show clickable logo on Orders screens
+  const isOnOrdersScreen = route.name === 'Orders' || route.name === 'OrdersHome';
+
   return (
     <View style={styles.header}>
       <View style={styles.leftSection}>
-        {showBackButton && (
-          <TouchableOpacity
-            onPress={handleBackPress}
-            style={styles.backButton}>
-            <Icon name="arrow-back" size={24} color="#007BFA" />
-          </TouchableOpacity>
+        {showBackButton ? (
+          <>
+            <TouchableOpacity
+              onPress={handleBackPress}
+              style={styles.backButton}>
+              <Icon name="keyboard-arrow-left" size={25} color="#007BFA" />
+            </TouchableOpacity>
+            <View style={styles.logoContainer}>
+              {isOnOrdersScreen ? (
+                <TouchableOpacity onPress={handleLogoPress}>
+                  <Image
+                    source={require('../assets/SavlaLogo.jpg')}
+                    style={styles.logo}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <Image
+                  source={require('../assets/SavlaLogo.jpg')}
+                  style={styles.logo}
+                />
+              )}
+              <Text style={styles.versionText}>{appVersion}</Text>
+            </View>
+          </>
+        ) : (
+          <View style={styles.logoContainer}>
+            {isOnOrdersScreen ? (
+              <TouchableOpacity onPress={handleLogoPress}>
+                <Image
+                  source={require('../assets/SavlaLogo.jpg')}
+                  style={styles.logo}
+                />
+              </TouchableOpacity>
+            ) : (
+              <Image
+                source={require('../assets/SavlaLogo.jpg')}
+                style={styles.logo}
+              />
+            )}
+            <Text style={styles.versionText}>{appVersion}</Text>
+          </View>
         )}
-        <View style={styles.logoContainer}>
-          <TouchableOpacity onPress={handleLogoPress}>
-            <Image
-              source={require('../assets/SavlaLogo.jpg')}
-              style={styles.logo}
-            />
-          </TouchableOpacity>
-          <Text style={styles.versionText}>{appVersion}</Text>
-        </View>
       </View>
 
       <View style={styles.centerSection}>
@@ -120,7 +149,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     height: 65,
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
@@ -128,11 +157,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    width: 75,
+    width: 95,
+    marginLeft: 0,
   },
   backButton: {
-    marginRight: 1,
+    position: 'relative',
+    left: 0,
+    marginRight: 4,
     padding: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   centerSection: {
     flex: 1,
@@ -150,6 +184,7 @@ const styles = StyleSheet.create({
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    marginLeft: 0,
   },
   logo: {
     width: 45,
