@@ -729,7 +729,7 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
                   }
                   // placeholder="Add any special instructions"
                   multiline
-                  numberOfLines={3}
+                  numberOfLines={100}
                   textAlignVertical="top"
                 />
               </View>
@@ -1229,7 +1229,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 120,
     paddingTop: 12,
-    paddingBottom: 12,
+    paddingBottom: 1,
     paddingRight: 12,
     fontSize: 15,
     color: '#2D3748',
