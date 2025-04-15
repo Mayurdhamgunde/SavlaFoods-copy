@@ -14,8 +14,8 @@ import {
  Animated,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import {NavigationProp, useNavigation} from '@react-navigation/native';
-import {RouteProp} from '@react-navigation/native';
+import {NavigationProp, useNavigation, RouteProp} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
 import axios from 'axios';
 import {useCustomer} from '../contexts/DisplayNameContext';
 import {ParamListBase} from '@react-navigation/native';
@@ -56,7 +56,7 @@ interface RouteParams {
 
 type EditOrderScreenProps = {
  route: RouteProp<{params: {order: Order}}, 'params'>;
- navigation: NavigationProp<ParamListBase>;
+ navigation: StackNavigationProp<any>;
 };
 
 const EditOrderScreen = ({route, navigation}: EditOrderScreenProps) => {
@@ -107,7 +107,10 @@ const EditOrderScreen = ({route, navigation}: EditOrderScreenProps) => {
          },
          {
            text: 'Discard Changes',
-           onPress: () => navigation.goBack(),
+           onPress: () => {
+             // Navigate back to the previous screen
+             navigation.goBack();
+           },
            style: 'destructive',
          },
        ]
@@ -289,62 +292,73 @@ const EditOrderScreen = ({route, navigation}: EditOrderScreenProps) => {
  };
 
  const handleUpdateOrder = async () => {
- if (!customerID) {
- showToast('Customer ID not found. Please login again.', 'error');
- return;
- }
-
- setIsLoading(true);
-
- try {
- // Format the delivery date for API
- const formattedDeliveryDate = formatDateForApi(formData.deliveryDate);
-
- // Prepare the request payload according to the API requirements
- const requestPayload = {
-   orderId: order.orderId,
-   customer_id: customerID,
-   deliveryDate: formattedDeliveryDate,
-   transporterName: formData.transporterName,
-   remarks: formData.remarks,
-   deliveryAddress: formData.deliveryAddress,
-   items: orderItems.map(item => ({
-     detailId: item.detailId,
-     requestedQty: item.requestedQty,
-   })),
- };
-
- // Call the update pending order API
- const response = await axios.put(
-   API_ENDPOINTS.UPDATE_PENDING_ORDER,
-   requestPayload,
-   {
-     params: {
-       customer_id: customerID,
-     },
+   if (!customerID) {
+     showToast('Customer ID not found. Please login again.', 'error');
+     return;
    }
- );
 
- const result = response.data;
+   setIsLoading(true);
 
- if (result.success) {
-   // Successfully updated the order
-   showToast('Order updated successfully!', 'success');
-   
-   // Wait for toast to show before navigating back
-   setTimeout(() => {
-     navigation.goBack();
-   }, 1500);
- } else {
-   // API returned an error
-   showToast(`Error: ${result.message}`, 'error');
- }
- } catch (error: any) {
-   console.error('Error updating order:', error);
-   showToast(`Error: ${error.response?.data?.message || error.message || 'Unknown error occurred'}`, 'error');
- } finally {
-   setIsLoading(false);
- }
+   try {
+     // Format the delivery date for API
+     const formattedDeliveryDate = formatDateForApi(formData.deliveryDate);
+
+     // Prepare the request payload according to the API requirements
+     const requestPayload = {
+       orderId: order.orderId,
+       customer_id: customerID,
+       deliveryDate: formattedDeliveryDate,
+       transporterName: formData.transporterName,
+       remarks: formData.remarks,
+       deliveryAddress: formData.deliveryAddress,
+       items: orderItems.map(item => ({
+         detailId: item.detailId,
+         requestedQty: item.requestedQty,
+       })),
+     };
+
+     // Call the update pending order API
+     const response = await axios.put(
+       API_ENDPOINTS.UPDATE_PENDING_ORDER,
+       requestPayload,
+       {
+         params: {
+           customer_id: customerID,
+         },
+       }
+     );
+
+     const result = response.data;
+
+     if (result.success) {
+       // Successfully updated the order
+       showToast('Order updated successfully!', 'success');
+       
+       // Wait for toast to show before navigating
+       setTimeout(() => {
+         // First navigate to OrdersHome
+         navigation.navigate('BottomTabNavigator', {
+           screen: 'Orders',
+           params: {
+             screen: 'OrdersHome'
+           }
+         });
+
+         // Then after a short delay, navigate to PendingOrdersScreen
+         setTimeout(() => {
+           navigation.navigate('PendingOrdersScreen');
+         }, 100); // Small delay to ensure smooth transition
+       }, 1500);
+     } else {
+       // API returned an error
+       showToast(`Error: ${result.message}`, 'error');
+     }
+   } catch (error: any) {
+     console.error('Error updating order:', error);
+     showToast(`Error: ${error.response?.data?.message || error.message || 'Unknown error occurred'}`, 'error');
+   } finally {
+     setIsLoading(false);
+   }
  };
 
  return (

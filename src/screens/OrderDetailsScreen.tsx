@@ -204,8 +204,8 @@ const OrderDetailsScreen = ({
 
  // Handle going back to previous screen
  const handleGoBack = () => {
-  // When going back, pass the updated order as a parameter to refresh the pending orders screen
-  navigation.navigate('PendingOrdersScreen', { refreshData: true, updatedOrder: order });
+   // Simply go back to the previous screen without passing parameters
+   navigation.goBack();
  };
 
  return (
