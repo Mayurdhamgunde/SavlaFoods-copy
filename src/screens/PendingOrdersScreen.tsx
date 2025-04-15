@@ -164,47 +164,14 @@ const PendingOrdersScreen = () => {
  useFocusEffect(
   useCallback(() => {
     console.log("PendingOrdersScreen focused");
-    // Don't fetch data immediately on every focus to avoid double refreshes
+    // Fetch data immediately every time the screen is focused
+    fetchPendingOrder(1, true);
     
-    // Check if we have navigation params indicating we should refresh
-    const unsubscribe = navigation.addListener('focus', () => {
-      try {
-        const navState = navigation.getState();
-        const currentRoute = navState.routes[navState.index];
-        
-        console.log("Focus event triggered, checking params");
-        
-        // Get params safely
-        const params = currentRoute.params as any;
-        
-        // Only refresh if we have specific params indicating we should
-        if (params?.fromEditScreen || params?.orderId || params?.refreshData) {
-          console.log("Detected return with refresh params, refreshing data");
-          fetchPendingOrder(1, true);
-          
-          // Clear the params to prevent repeated refreshes
-          if (navigation.setParams) {
-            // Create an object with only the safe parameters
-            const paramsToReset: any = {};
-            
-            // Only include parameters that exist
-            if (params && typeof params === 'object') {
-              if ('fromEditScreen' in params) paramsToReset.fromEditScreen = undefined;
-              if ('orderId' in params) paramsToReset.orderId = undefined;
-              if ('refreshData' in params) paramsToReset.refreshData = undefined;
-              if ('updatedOrder' in params) paramsToReset.updatedOrder = undefined;
-            }
-            
-            navigation.setParams(paramsToReset);
-          }
-        }
-      } catch (error) {
-        console.error("Error in focus effect:", error);
-      }
-    });
-
-    return unsubscribe;
-  }, [navigation, fetchPendingOrder])
+    // No need for the additional navigation listener since we're refreshing immediately
+    return () => {
+      // Cleanup if needed
+    };
+  }, [fetchPendingOrder])
  );
 
  const loadMoreOrders = () => {
