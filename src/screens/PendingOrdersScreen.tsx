@@ -163,35 +163,48 @@ const PendingOrdersScreen = () => {
  // Add useFocusEffect to refresh data when screen is focused
  useFocusEffect(
   useCallback(() => {
+    console.log("PendingOrdersScreen focused");
+    // Don't fetch data immediately on every focus to avoid double refreshes
+    
     // Check if we have navigation params indicating we should refresh
     const unsubscribe = navigation.addListener('focus', () => {
-      const navState = navigation.getState();
-      const currentRoute = navState.routes[navState.index];
-      
-      // If returning from OrderDetailsScreen with refreshData param
-      if (currentRoute.params && typeof currentRoute.params === 'object' && 'refreshData' in currentRoute.params) {
-        // If an updatedOrder was provided
-        if (currentRoute.params.updatedOrder) {
-          const updatedOrder = currentRoute.params.updatedOrder as PendingOrder;
-          
-          // Update the specific order in the list
-          setOrders(prevOrders => 
-            prevOrders.map(order => 
-              order.orderId === updatedOrder.orderId ? updatedOrder : order
-            )
-          );
-        } else {
-          // Otherwise just refresh the whole list
-          onRefresh();
-        }
+      try {
+        const navState = navigation.getState();
+        const currentRoute = navState.routes[navState.index];
         
-        // Clear the params to prevent repeated refreshes
-        navigation.setParams({ refreshData: undefined, updatedOrder: undefined });
+        console.log("Focus event triggered, checking params");
+        
+        // Get params safely
+        const params = currentRoute.params as any;
+        
+        // Only refresh if we have specific params indicating we should
+        if (params?.fromEditScreen || params?.orderId || params?.refreshData) {
+          console.log("Detected return with refresh params, refreshing data");
+          fetchPendingOrder(1, true);
+          
+          // Clear the params to prevent repeated refreshes
+          if (navigation.setParams) {
+            // Create an object with only the safe parameters
+            const paramsToReset: any = {};
+            
+            // Only include parameters that exist
+            if (params && typeof params === 'object') {
+              if ('fromEditScreen' in params) paramsToReset.fromEditScreen = undefined;
+              if ('orderId' in params) paramsToReset.orderId = undefined;
+              if ('refreshData' in params) paramsToReset.refreshData = undefined;
+              if ('updatedOrder' in params) paramsToReset.updatedOrder = undefined;
+            }
+            
+            navigation.setParams(paramsToReset);
+          }
+        }
+      } catch (error) {
+        console.error("Error in focus effect:", error);
       }
     });
 
     return unsubscribe;
-  }, [navigation, onRefresh])
+  }, [navigation, fetchPendingOrder])
  );
 
  const loadMoreOrders = () => {

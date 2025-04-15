@@ -59,6 +59,14 @@ type EditOrderScreenProps = {
  navigation: StackNavigationProp<any>;
 };
 
+// Add navigation constants at the top for better maintainability
+const NAVIGATION_CONSTANTS = {
+ BOTTOM_TAB: 'BottomTabNavigator',
+ ORDERS: 'Orders',
+ ORDERS_HOME: 'OrdersHome',
+ PENDING_ORDERS: 'PendingOrdersScreen'
+};
+
 const EditOrderScreen = ({route, navigation}: EditOrderScreenProps) => {
  // const navigation = useNavigation();
  const {customerID} = useCustomer();
@@ -303,14 +311,25 @@ const EditOrderScreen = ({route, navigation}: EditOrderScreenProps) => {
      // Format the delivery date for API
      const formattedDeliveryDate = formatDateForApi(formData.deliveryDate);
 
+     // Validate form data before making API call
+     if (!formattedDeliveryDate) {
+       showToast('Please enter a valid delivery date', 'error');
+       return;
+     }
+
+     if (!formData.transporterName.trim()) {
+       showToast('Please enter transporter name', 'error');
+       return;
+     }
+
      // Prepare the request payload according to the API requirements
      const requestPayload = {
        orderId: order.orderId,
        customer_id: customerID,
        deliveryDate: formattedDeliveryDate,
-       transporterName: formData.transporterName,
-       remarks: formData.remarks,
-       deliveryAddress: formData.deliveryAddress,
+       transporterName: formData.transporterName.trim(),
+       remarks: formData.remarks.trim(),
+       deliveryAddress: formData.deliveryAddress.trim(),
        items: orderItems.map(item => ({
          detailId: item.detailId,
          requestedQty: item.requestedQty,
@@ -336,18 +355,11 @@ const EditOrderScreen = ({route, navigation}: EditOrderScreenProps) => {
        
        // Wait for toast to show before navigating
        setTimeout(() => {
-         // First navigate to OrdersHome
-         navigation.navigate('BottomTabNavigator', {
-           screen: 'Orders',
-           params: {
-             screen: 'OrdersHome'
-           }
-         });
-
-         // Then after a short delay, navigate to PendingOrdersScreen
-         setTimeout(() => {
-           navigation.navigate('PendingOrdersScreen');
-         }, 100); // Small delay to ensure smooth transition
+         // Simply go back to the previous screen (which should be PendingOrdersScreen within the Orders tab)
+         navigation.goBack();
+         
+         // You can implement event listening in the PendingOrdersScreen component
+         // to refresh data when focusing the screen again
        }, 1500);
      } else {
        // API returned an error
@@ -355,7 +367,8 @@ const EditOrderScreen = ({route, navigation}: EditOrderScreenProps) => {
      }
    } catch (error: any) {
      console.error('Error updating order:', error);
-     showToast(`Error: ${error.response?.data?.message || error.message || 'Unknown error occurred'}`, 'error');
+     const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
+     showToast(`Error: ${errorMessage}`, 'error');
    } finally {
      setIsLoading(false);
    }
