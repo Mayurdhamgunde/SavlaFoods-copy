@@ -1,4 +1,3 @@
-
 import React, {useEffect, useState, useCallback} from 'react';
 import {
  ActivityIndicator,
@@ -11,7 +10,7 @@ import {
  View,
  SafeAreaView,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import axios from 'axios';
 import {API_ENDPOINTS} from '../config/api.config';
@@ -160,6 +159,40 @@ const PendingOrdersScreen = () => {
  setRefreshing(true);
  fetchPendingOrder(1, true);
  };
+
+ // Add useFocusEffect to refresh data when screen is focused
+ useFocusEffect(
+  useCallback(() => {
+    // Check if we have navigation params indicating we should refresh
+    const unsubscribe = navigation.addListener('focus', () => {
+      const navState = navigation.getState();
+      const currentRoute = navState.routes[navState.index];
+      
+      // If returning from OrderDetailsScreen with refreshData param
+      if (currentRoute.params && typeof currentRoute.params === 'object' && 'refreshData' in currentRoute.params) {
+        // If an updatedOrder was provided
+        if (currentRoute.params.updatedOrder) {
+          const updatedOrder = currentRoute.params.updatedOrder as PendingOrder;
+          
+          // Update the specific order in the list
+          setOrders(prevOrders => 
+            prevOrders.map(order => 
+              order.orderId === updatedOrder.orderId ? updatedOrder : order
+            )
+          );
+        } else {
+          // Otherwise just refresh the whole list
+          onRefresh();
+        }
+        
+        // Clear the params to prevent repeated refreshes
+        navigation.setParams({ refreshData: undefined, updatedOrder: undefined });
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, onRefresh])
+ );
 
  const loadMoreOrders = () => {
  if (!isLoadingMore && page < totalPages) {
