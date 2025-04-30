@@ -522,7 +522,6 @@ const QuantitySelectorModal: React.FC<QuantitySelectorModalProps> = ({
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Quantity</Text>
-              
             </View>
 
             <View style={styles.itemInfo}>
@@ -708,7 +707,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#E5E7EB',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',

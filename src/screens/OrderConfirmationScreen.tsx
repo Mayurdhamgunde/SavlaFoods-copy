@@ -106,7 +106,7 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
   // Get today's date in YYYY-MM-DD format
   const today = new Date();
   const formattedToday = today.toISOString().split('T')[0];
-  
+
   // Reference for picker timer
   const datePickerTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -238,13 +238,13 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
       'keyboardDidShow',
       () => {
         setKeyboardVisible(true);
-      }
+      },
     );
     const keyboardDidHideListener = Keyboard.addListener(
       'keyboardDidHide',
       () => {
         setKeyboardVisible(false);
-      }
+      },
     );
 
     return () => {
@@ -270,7 +270,7 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
   const updateAppliedQuantity = (id: number, value: string) => {
     // Only allow numeric values (no special characters, letters, etc.)
     const numericOnly = value.replace(/[^0-9]/g, '');
-    
+
     setLaborCharges(
       laborCharges.map(charge =>
         charge.id === id ? {...charge, appliedQuantity: numericOnly} : charge,
@@ -305,9 +305,7 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
   // Update the date field handler to handle keyboard properly
   const handleDateFieldTap = () => {
     // Only dismiss keyboard for this specific interaction
-    // This won't affect the keyboard behavior for other interactions
     Keyboard.dismiss();
-    
     // Show date picker after ensuring keyboard is dismissed
     setTimeout(() => {
       setShowDatePicker(true);
@@ -364,12 +362,14 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
   const handleTransporterNameChange = (text: string) => {
     // Only allow letters, spaces, and some common punctuation
     const letterOnlyRegex = /^[a-zA-Z\s.',-]*$/;
-    
+
     // Update the state regardless, but set an error if invalid
     setTransporterDetails(prev => ({...prev, name: text}));
-    
+
     if (!letterOnlyRegex.test(text)) {
-      setTransporterNameError('Only letters, spaces, and common punctuation allowed');
+      setTransporterNameError(
+        'Only letters, spaces, and common punctuation allowed',
+      );
     } else {
       setTransporterNameError('');
     }
@@ -390,7 +390,8 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
       errorMessage += '\nTransporter Name is required';
       hasError = true;
     } else if (!/^[a-zA-Z\s.',-]*$/.test(transporterDetails.name)) {
-      errorMessage += '\nTransporter Name can only contain letters, spaces, and common punctuation';
+      errorMessage +=
+        '\nTransporter Name can only contain letters, spaces, and common punctuation';
       hasError = true;
     }
 
@@ -543,14 +544,14 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
             <MaterialIcons
               name="arrow-back"
               size={24}
-              style={{color: '#4CAF50'}}
+              style={{color: '#0284c7'}}
             />
           </TouchableOpacity>
           <Text style={styles.headerText}>Order Confirmation</Text>
           <View style={styles.headerSpacer}></View>
         </View>
-        
-        <ScrollView 
+
+        <ScrollView
           style={styles.scrollContainer}
           keyboardShouldPersistTaps="always"
           keyboardDismissMode="none">
@@ -655,7 +656,8 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
                 <Text style={{color: 'red'}}> *</Text>
               </Text>
               <TouchableWithoutFeedback onPress={handleDateFieldTap}>
-                <View style={[styles.dateInputContainer, { position: 'relative' }]}>
+                <View
+                  style={[styles.dateInputContainer, {position: 'relative'}]}>
                   <View style={styles.dateInputContent}>
                     <MaterialIcons
                       name="event-available"
@@ -675,6 +677,7 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
                   value={selectedDate}
                   mode="date"
                   display="default"
+                  textColor="#0284c7"
                   onChange={onDateChange}
                   minimumDate={new Date()}
                 />
@@ -758,7 +761,7 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
               </View>
             ))}
           </View>
-          
+
           {/* Submit Button */}
           <View style={styles.submitButtonContainer}>
             <TouchableOpacity
@@ -783,129 +786,6 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
             </TouchableOpacity>
           </View>
         </ScrollView>
-
-        {/* Labor Modal */}
-        {/* <Modal
-          visible={isLaborModalVisible}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setIsLaborModalVisible(false)}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <View style={styles.modalTitleContainer}>
-                  <MaterialIcons name="engineering" size={24} color="#2C3E50" />
-                  <Text style={styles.modalTitle}>Handling</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setIsLaborModalVisible(false)}
-                  style={styles.closeModalButton}>
-                  <Ionicons name="close" size={24} color="#2C3E50" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.tableHeader}>
-                <Text
-                  style={[
-                    styles.tableHeaderCell,
-                    {width: '10%', textAlign: 'center'},
-                  ]}>
-                  #
-                </Text>
-                <Text
-                  style={[
-                    styles.tableHeaderCell,
-                    {width: '15%', textAlign: 'center'},
-                  ]}></Text>
-                <Text style={[styles.tableHeaderCell, {width: '30%'}]}>
-                  Type
-                </Text>
-                <Text style={[styles.tableHeaderCell, {width: '25%'}]}>
-                  Applied Quantity
-                </Text>
-                <Text style={[styles.tableHeaderCell, {width: '20%'}]}>
-                  Quantity
-                </Text>
-              </View>
-
-              <ScrollView style={styles.laborItemsContainer}>
-                {laborCharges.map((charge, index) => (
-                  <View
-                    key={charge.id}
-                    style={[
-                      styles.laborItem,
-                      index % 2 === 0 ? styles.evenRow : null,
-                    ]}>
-                    <Text
-                      style={[
-                        styles.laborItemText,
-                        {width: '10%', textAlign: 'center'},
-                      ]}>
-                      {charge.id}
-                    </Text>
-                    <View style={{width: '15%', alignItems: 'center'}}>
-                      <TouchableOpacity
-                        onPress={() => toggleLaborChargeSelection(charge.id)}
-                        disabled={charge.id === 1}>
-                        <View
-                          style={[
-                            styles.checkbox,
-                            charge.selected && styles.checkboxSelected,
-                            charge.id === 1 && styles.checkboxDisabled,
-                          ]}>
-                          {charge.selected && (
-                            <Text style={styles.checkmark}>✓</Text>
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={[styles.laborItemText, {width: '30%'}]}>
-                      {charge.type}
-                    </Text>
-                    <View style={{width: '25%', paddingHorizontal: 5}}>
-                      <TextInput
-                        style={[
-                          styles.quantityInput,
-                          !charge.selected && styles.disabledQuantityInput,
-                        ]}
-                        value={charge.appliedQuantity}
-                        onChangeText={text =>
-                          updateAppliedQuantity(charge.id, text)
-                        }
-                        keyboardType="numeric"
-                        editable={charge.selected}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.laborItemText,
-                        {width: '20%', textAlign: 'center'},
-                      ]}>
-                      {charge.quantity}
-                    </Text>
-                  </View>
-                ))}
-              </ScrollView>
-
-              <View style={styles.modalDivider} />
-
-              <View style={styles.modalButtonContainer}>
-                <TouchableOpacity
-                  style={styles.webModalButton}
-                  onPress={proceedWithLaborCharges}>
-                  <Text style={styles.webModalButtonText}>Proceed</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.webModalButton, styles.webCloseButton]}
-                  onPress={() => setIsLaborModalVisible(false)}>
-                  <Text style={styles.webCloseButtonText}>Close</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal> */}
 
         <Modal
           visible={showDatePicker && Platform.OS === 'ios'}
@@ -1008,7 +888,7 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
                     }, 100);
                   }}>
                   <LinearGradient
-                    colors={['#6B46C1', '#553C9A']}
+                    colors={['#0284c7', '#0284c7']}
                     style={styles.viewOrderGradient}>
                     <MaterialIcons
                       name="visibility"
@@ -1152,7 +1032,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#0284c7',
   },
   scrollContainer: {
     flex: 1,
@@ -1275,16 +1155,16 @@ const styles = StyleSheet.create({
     color: '#2C3E50',
   },
   iosDatePickerDoneBtn: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: '#0284c7',
   },
   iosDatePicker: {
     height: 200,
     marginTop: 10,
   },
   iosDatePickerConfirmBtn: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0284c7',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -1449,7 +1329,7 @@ const styles = StyleSheet.create({
     }),
   },
   submitButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0284c7',
     borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
@@ -1607,7 +1487,7 @@ const styles = StyleSheet.create({
   dateInputContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    color: '#2C3E50',
+    color: '#0284c7',
     flex: 1,
   },
   dateText: {
@@ -1717,7 +1597,7 @@ const styles = StyleSheet.create({
   },
   orderNoValue: {
     fontSize: 16,
-    color: '#6B46C1',
+    color: '#0284c7',
     fontWeight: '600',
   },
   successButtonsContainer: {
@@ -1727,11 +1607,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   viewOrderButton: {
-    width: '80%',
-    height: Platform.OS === 'ios' ? 52 : 52, // Explicit height
+    width: '70%',
+    height: Platform.OS === 'ios' ? 45 : 45, // Explicit height
     overflow: 'hidden',
     borderRadius: 12,
-    backgroundColor: '#6B46C1', // Fallback color
+    backgroundColor: '#0284c7', // Fallback color
     marginBottom: 16,
     ...Platform.select({
       ios: {
@@ -1838,7 +1718,7 @@ const styles = StyleSheet.create({
     lineHeight: Platform.OS === 'ios' ? 16 : 18,
   },
   validationActionButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0284c7',
     borderRadius: 10,
     paddingVertical: Platform.OS === 'ios' ? 10 : 10,
     paddingHorizontal: 20,

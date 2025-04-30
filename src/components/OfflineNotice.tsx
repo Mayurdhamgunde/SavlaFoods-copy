@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, Animated } from 'react-native';
-import { useNetwork } from '../contexts/NetworkContext';
+import React, {useEffect, useState} from 'react';
+import {View, Text, StyleSheet, Dimensions, Animated} from 'react-native';
+import {useNetwork} from '../contexts/NetworkContext';
 
-const { width } = Dimensions.get('window');
+const {width} = Dimensions.get('window');
 
 const OfflineNotice: React.FC = () => {
-  const { isConnected } = useNetwork();
+  const {isConnected} = useNetwork();
   const [reconnecting, setReconnecting] = useState(false);
   const [wasDisconnected, setWasDisconnected] = useState(false);
   const translateY = useState(new Animated.Value(-50))[0];
@@ -16,7 +16,7 @@ const OfflineNotice: React.FC = () => {
       // Network is disconnected
       setWasDisconnected(true);
       setReconnecting(false);
-      
+
       // Animate in
       Animated.parallel([
         Animated.timing(translateY, {
@@ -33,7 +33,7 @@ const OfflineNotice: React.FC = () => {
     } else if (isConnected === true && wasDisconnected) {
       // Just reconnected - show "Reconnected" message briefly
       setReconnecting(true);
-      
+
       // Keep banner visible with new message
       setTimeout(() => {
         // Hide banner after 2 seconds
@@ -61,18 +61,19 @@ const OfflineNotice: React.FC = () => {
   }
 
   return (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.offlineContainer,
         reconnecting ? styles.reconnectedContainer : {},
-        { 
-          transform: [{ translateY }],
-          opacity
-        }
-      ]}
-    >
+        {
+          transform: [{translateY}],
+          opacity,
+        },
+      ]}>
       <Text style={styles.offlineText}>
-        {reconnecting ? 'Connected! Refreshing data...' : 'No internet connection'}
+        {reconnecting
+          ? 'Connected! Refreshing data...'
+          : 'No internet connection'}
       </Text>
     </Animated.View>
   );
@@ -99,4 +100,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default OfflineNotice; 
+export default OfflineNotice;

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import {useEffect, useState} from 'react';
 import NetInfo from '@react-native-community/netinfo';
-import { Alert } from 'react-native';
+import {Alert} from 'react-native';
 
 /**
  * Custom hook for monitoring network connectivity status
@@ -14,14 +14,14 @@ const useNetworkStatus = (showAlert = false): boolean | null => {
     // Function to handle network state changes
     const handleNetworkChange = (state: any) => {
       setIsConnected(state.isConnected);
-      
+
       // Show alert if specified and connection status changes
       if (showAlert) {
         if (!state.isConnected) {
           Alert.alert(
             'No Internet Connection',
             'Please check your network connection and try again.',
-            [{ text: 'OK' }]
+            [{text: 'OK'}],
           );
         }
       }
@@ -42,4 +42,4 @@ const useNetworkStatus = (showAlert = false): boolean | null => {
   return isConnected;
 };
 
-export default useNetworkStatus; 
+export default useNetworkStatus;

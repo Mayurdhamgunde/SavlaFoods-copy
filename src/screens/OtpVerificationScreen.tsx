@@ -475,7 +475,7 @@ const OtpVerificationScreen: React.FC<{
             } else {
               // For other inputs (username), only scroll if actually hidden
               const availableHeight = SCREEN_HEIGHT - keyboardHeight;
-              const scrollAmount = Math.max(0, (top + 60) - availableHeight);
+              const scrollAmount = Math.max(0, top + 60 - availableHeight);
               if (scrollAmount > 0) {
                 scrollViewRef.current?.scrollTo({
                   y: scrollAmount,
@@ -484,7 +484,7 @@ const OtpVerificationScreen: React.FC<{
               }
             }
           },
-          () => {}
+          () => {},
         );
       }
     }, 100);
@@ -500,12 +500,15 @@ const OtpVerificationScreen: React.FC<{
     try {
       const netInfo = await NetInfo.fetch();
       if (!netInfo.isConnected) {
-        Alert.alert('No Internet Connection', 'Please check your network connection and try again.');
+        Alert.alert(
+          'No Internet Connection',
+          'Please check your network connection and try again.',
+        );
         return;
       }
-    
+
       setIsLoading(true);
-      
+
       console.log('🟢 Making login request to:', API_ENDPOINTS.LOGIN);
       console.log('🔹 With data:', {
         sf_userName: username,
@@ -575,13 +578,18 @@ const OtpVerificationScreen: React.FC<{
       }
     } catch (error: any) {
       // Network related errors
-      if (error.message && (
-          error.message.includes('Network Error') || 
-          error.message.includes('timeout') || 
+      if (
+        error.message &&
+        (error.message.includes('Network Error') ||
+          error.message.includes('timeout') ||
           error.message.includes('connection') ||
           error.code === 'ECONNABORTED' ||
-          !error.response)) {
-        Alert.alert('No Internet Connection', 'Please check your network connection and try again.');
+          !error.response)
+      ) {
+        Alert.alert(
+          'No Internet Connection',
+          'Please check your network connection and try again.',
+        );
       } else {
         // Authentication errors
         Alert.alert('Invalid username or password. Please try again.');
@@ -611,7 +619,10 @@ const OtpVerificationScreen: React.FC<{
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollViewContent,
-            {paddingBottom: keyboardHeight > 0 ? keyboardHeight/2 : moderateScale(50)},
+            {
+              paddingBottom:
+                keyboardHeight > 0 ? keyboardHeight / 2 : moderateScale(50),
+            },
           ]}
           bounces={true}
           keyboardShouldPersistTaps="always"

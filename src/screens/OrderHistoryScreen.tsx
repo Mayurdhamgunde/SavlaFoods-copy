@@ -1,4 +1,3 @@
-//Integrated History
 import React, {useEffect, useState, useCallback} from 'react';
 import {
   ActivityIndicator,
@@ -21,6 +20,7 @@ import {useCustomer} from '../contexts/DisplayNameContext';
 import {MainStackParamList} from '../../src/type/type';
 
 interface OrderHistory {
+  deliveryAddress: string;
   orderId: number;
   orderNo: string;
   orderDate: string;
@@ -50,8 +50,6 @@ interface OrderHistory {
     cancelledRemark: string | null;
     cancelledDate: string | null;
   }>;
-  // deliveryAddress?: string;
-  deliveryAddress?: string;
 }
 
 interface OrderHistoryResponse {
@@ -80,7 +78,7 @@ const OrderHistoryScreen = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<string | null>("CANCEL");
+  const [selectedStatus, setSelectedStatus] = useState<string | null>('CANCEL');
 
   // Get customerID from context or route params
   const {customerID: contextCustomerID} = useCustomer();
@@ -117,20 +115,29 @@ const OrderHistoryScreen = () => {
         // Add status filter if selected
         if (status) apiParams.status = status;
 
-        console.log('Fetching order history with params:', JSON.stringify(apiParams, null, 2));
+        console.log(
+          'Fetching order history with params:',
+          JSON.stringify(apiParams, null, 2),
+        );
 
-        const response = await axios.get<OrderHistoryResponse>(`${API_ENDPOINTS.GET_ORDER_HISTORY}`, {
-          params: apiParams,
-        });
+        const response = await axios.get<OrderHistoryResponse>(
+          `${API_ENDPOINTS.GET_ORDER_HISTORY}`,
+          {
+            params: apiParams,
+          },
+        );
 
         const result = response.data;
         console.log('Order history response:', JSON.stringify(result, null, 2));
         console.log('Orders Count:', result.data.orders.length);
-        console.log('Pagination Info:', JSON.stringify(result.data.pagination, null, 2));
+        console.log(
+          'Pagination Info:',
+          JSON.stringify(result.data.pagination, null, 2),
+        );
 
         if (result.success) {
           const ordersData = result.data.orders;
-          
+
           if (refresh || pageNum === 1) {
             setOrders(ordersData);
           } else {
@@ -164,6 +171,7 @@ const OrderHistoryScreen = () => {
         orderNo: params.orderNo,
         orderDate: params.orderDate || '',
         deliveryDate: params.deliveryDate || '',
+        deliveryAddress: params.deliveryAddress || '',
         status: params.status || 'NEW',
         transporterName: params.transporterName || '',
         remarks: params.remarks || '',
@@ -179,7 +187,6 @@ const OrderHistoryScreen = () => {
             0,
           ) || 0,
         items: params.items || [],
-        deliveryAddress: params.deliveryAddress || '',
       };
       setOrders([paramOrder]);
       setIsLoading(false);
@@ -286,12 +293,12 @@ const OrderHistoryScreen = () => {
 
     // Set the status immediately
     setSelectedStatus(status);
-    
+
     // Reset data and fetch with new status
     setOrders([]);
     setIsLoading(true);
     setPage(1);
-    
+
     // Small timeout to ensure state is updated before fetch
     setTimeout(() => {
       const apiParams: any = {
@@ -299,37 +306,38 @@ const OrderHistoryScreen = () => {
         page: 1,
         limit: 10,
       };
-      
+
       if (status) apiParams.status = status;
-      
+
       console.log('Filtering with status:', status);
-      
-      axios.get<OrderHistoryResponse>(`${API_ENDPOINTS.GET_ORDER_HISTORY}`, {
-        params: apiParams,
-      })
-      .then(response => {
-        const result = response.data;
-        
-        if (result.success) {
-          const ordersData = result.data.orders;
-          
-          setOrders(ordersData);
-          setTotalPages(result.data.pagination.totalPages);
-          setPage(result.data.pagination.page);
-        } else {
-          setError(result.message || 'Failed to load order history');
+
+      axios
+        .get<OrderHistoryResponse>(`${API_ENDPOINTS.GET_ORDER_HISTORY}`, {
+          params: apiParams,
+        })
+        .then(response => {
+          const result = response.data;
+
+          if (result.success) {
+            const ordersData = result.data.orders;
+
+            setOrders(ordersData);
+            setTotalPages(result.data.pagination.totalPages);
+            setPage(result.data.pagination.page);
+          } else {
+            setError(result.message || 'Failed to load order history');
+            setOrders([]);
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching filtered orders:', err);
+          setError(err.message || 'Server error. Please try again later.');
           setOrders([]);
-        }
-      })
-      .catch(err => {
-        console.error('Error fetching filtered orders:', err);
-        setError(err.message || 'Server error. Please try again later.');
-        setOrders([]);
-      })
-      .finally(() => {
-        setIsLoading(false);
-        setRefreshing(false);
-      });
+        })
+        .finally(() => {
+          setIsLoading(false);
+          setRefreshing(false);
+        });
     }, 50);
   };
 
@@ -350,6 +358,19 @@ const OrderHistoryScreen = () => {
 
     return (
       <View style={styles.filterContainer}>
+        {/* <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}>
+            <MaterialIcons
+              name="arrow-back"
+              size={24}
+              style={{color: '#0284c7'}}
+            />
+          </TouchableOpacity>
+          <Text style={styles.headerText}>Order Confirmation</Text>
+          <View style={styles.headerSpacer}></View>
+        </View> */}
         <View style={styles.filterHeader}>
           <MaterialIcons name="tune" size={20} color="#0284c7" />
           <Text style={styles.filterTitle}>Filter Orders</Text>
@@ -392,11 +413,12 @@ const OrderHistoryScreen = () => {
 
   const renderOrderCard = ({item}: {item: OrderHistory}) => {
     // Check if any items have CANCEL status
-    const hasAnyCancelledItem = item.items && item.items.some(orderItem => orderItem.status === 'CANCEL');
-    
+    const hasAnyCancelledItem =
+      item.items && item.items.some(orderItem => orderItem.status === 'CANCEL');
+
     // If any item is cancelled, override the order status for display purposes
     const displayStatus = hasAnyCancelledItem ? 'CANCEL' : item.status;
-    
+
     // Get the appropriate colors for the status
     const statusColors = getStatusColor(displayStatus);
 
@@ -405,102 +427,167 @@ const OrderHistoryScreen = () => {
         {/* Order Number and Status */}
         <View style={styles.orderHeaderTop}>
           <View style={styles.orderNumberContainer}>
-            <MaterialIcons name="receipt" size={20} color="#0284C7" style={styles.orderIcon} />
+            {/* <MaterialIcons
+              name="receipt"
+              size={20}
+              color="#0284C7"
+              style={styles.orderIcon}
+            /> */}
             <Text style={styles.orderNumberLabel}>Order No:</Text>
             <Text style={styles.orderNumberValue}>{item.orderNo}</Text>
           </View>
-          <View style={styles.statusContainer}>
-            <View style={[styles.statusBadge, {backgroundColor: statusColors.bg}]}>
+          {/* <View style={styles.statusContainer}>
+            <View
+              style={[styles.statusBadge, {backgroundColor: statusColors.bg}]}>
               <Text style={[styles.statusText, {color: statusColors.text}]}>
                 {displayStatus}
               </Text>
             </View>
-          </View>
+          </View> */}
         </View>
 
         {/* Items List */}
         <View style={styles.itemsList}>
           <View style={styles.itemsListHeader}>
-            <MaterialIcons name="inventory" size={20} color="#0284C7" style={styles.itemsIcon} />
+            <MaterialIcons
+              name="inventory"
+              size={20}
+              color="#0284C7"
+              style={styles.itemsIcon}
+            />
             <Text style={styles.itemsListTitle}>Items ({item.totalItems})</Text>
           </View>
-          {item.items && item.items.map((orderItem, index) => (
-            <View key={`item-${index}`} style={styles.itemContainer}>
-              {index > 0 && <View style={styles.itemDivider} />}
-              <View style={styles.itemHeader}>
-                <View style={styles.itemHeaderContainer}>
-                  <Text style={styles.itemHeaderName}>{orderItem.itemName}</Text>
-                  <View style={styles.quantityContainer}>
-                    <MaterialIcons name="shopping-cart" size={16} color="#6B7280" style={styles.quantityIcon} />
-                    <Text style={styles.itemHeaderQuantity}>
-                      Qty: {orderItem.requestedQty}
+          {item.items &&
+            item.items.map((orderItem, index) => (
+              <View key={`item-${index}`} style={styles.itemContainer}>
+                {index > 0 && <View style={styles.itemDivider} />}
+                <View style={styles.itemHeader}>
+                  <View style={styles.itemHeaderContainer}>
+                    <Text style={styles.itemHeaderName}>
+                      {orderItem.itemName}
                     </Text>
+                    <View style={styles.quantityContainer}>
+                      <MaterialIcons
+                        name="shopping-cart"
+                        size={16}
+                        color="#6B7280"
+                        style={styles.quantityIcon}
+                      />
+                      <Text style={styles.itemHeaderQuantity}>
+                        Qty: {orderItem.requestedQty}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              <View style={styles.lotNoContainer}>
-                <MaterialIcons name="label" size={16} color="#d97706" style={styles.lotNoIcon} />
-                <Text style={styles.lotNoLabel}>Lot No:</Text>
-                <Text style={styles.lotNoValue}>{orderItem.lotNo}</Text>
-              </View>
-
-              {orderItem.itemMarks && (
-                <View style={styles.itemMarksContainer}>
-                  <MaterialIcons name="description" size={16} color="#4B5563" style={styles.itemMarksIcon} />
-                  <Text style={styles.itemMarksLabel}>Item Marks:</Text>
-                  <Text style={styles.itemMarksValue}>{orderItem.itemMarks}</Text>
+                <View style={styles.lotNoContainer}>
+                  <MaterialIcons
+                    name="label"
+                    size={16}
+                    color="#d97706"
+                    style={styles.lotNoIcon}
+                  />
+                  <Text style={styles.lotNoLabel}>Lot No:</Text>
+                  <Text style={styles.lotNoValue}>{orderItem.lotNo}</Text>
                 </View>
-              )}
 
-              {orderItem.vakalNo && (
-                <View style={styles.vakalNoContainer}>
-                  <MaterialIcons name="receipt-long" size={16} color="#4B5563" style={styles.vakalNoIcon} />
-                  <Text style={styles.vakalNoLabel}>Vakal No:</Text>
-                  <Text style={styles.vakalNoValue}>{orderItem.vakalNo}</Text>
-                </View>
-              )}
-            </View>
-          ))}
+                {orderItem.itemMarks && (
+                  <View style={styles.itemMarksContainer}>
+                    <MaterialIcons
+                      name="description"
+                      size={16}
+                      color="#4B5563"
+                      style={styles.itemMarksIcon}
+                    />
+                    <Text style={styles.itemMarksLabel}>Item Marks:</Text>
+                    <Text style={styles.itemMarksValue}>
+                      {orderItem.itemMarks}
+                    </Text>
+                  </View>
+                )}
+
+                {orderItem.vakalNo && (
+                  <View style={styles.vakalNoContainer}>
+                    <MaterialIcons
+                      name="receipt-long"
+                      size={16}
+                      color="#4B5563"
+                      style={styles.vakalNoIcon}
+                    />
+                    <Text style={styles.vakalNoLabel}>Vakal No:</Text>
+                    <Text style={styles.vakalNoValue}>{orderItem.vakalNo}</Text>
+                  </View>
+                )}
+              </View>
+            ))}
         </View>
 
         {/* Common Order Details at the bottom */}
         <View style={styles.orderDetailsSection}>
           <View style={styles.orderDetailsHeader}>
-            <MaterialIcons name="info" size={20} color="#0284C7" style={styles.orderDetailsIcon} />
+            <MaterialIcons
+              name="info"
+              size={20}
+              color="#0284C7"
+              style={styles.orderDetailsIcon}
+            />
             <Text style={styles.orderDetailsTitle}>Order Details</Text>
           </View>
-          
+
           <View style={styles.dateContainer}>
             <View style={styles.dateBox}>
               <View style={styles.dateLabelContainer}>
-                <MaterialIcons name="event" size={16} color="#374151" style={styles.dateIcon} />
+                <MaterialIcons
+                  name="event"
+                  size={16}
+                  color="#374151"
+                  style={styles.dateIcon}
+                />
                 <Text style={styles.dateLabel}>Order Date</Text>
               </View>
               <Text style={styles.dateValue}>{formatDate(item.orderDate)}</Text>
             </View>
             <View style={styles.dateBox}>
               <View style={styles.dateLabelContainer}>
-                <MaterialIcons name="local-shipping" size={16} color="#374151" style={styles.dateIcon} />
+                <MaterialIcons
+                  name="event"
+                  size={16}
+                  color="#374151"
+                  style={styles.dateIcon}
+                />
                 <Text style={styles.dateLabel}>Delivery Date</Text>
               </View>
-              <Text style={styles.dateValue}>{formatDate(item.deliveryDate)}</Text>
+              <Text style={styles.dateValue}>
+                {formatDate(item.deliveryDate)}
+              </Text>
             </View>
           </View>
 
           {displayStatus === 'CANCEL' && (
             <View style={styles.closedDateContainer}>
-              <MaterialIcons name="block" size={16} color="#ef4444" style={styles.closedDateIcon} />
+              <MaterialIcons
+                name="block"
+                size={16}
+                color="#ef4444"
+                style={styles.closedDateIcon}
+              />
               <Text style={styles.closedDateLabel}>Cancelled on:</Text>
-              <Text style={styles.closedDateValue}>{formatDate(item.createdOn)}</Text>
+              <Text style={styles.closedDateValue}>
+                {formatDate(item.createdOn)}
+              </Text>
             </View>
           )}
 
           {item.remarks && (
             <View style={styles.remarksContainer}>
               <View style={styles.remarksHeader}>
-                <MaterialIcons name="comment" size={16} color="#4B5563" style={styles.remarksIcon} />
-                <Text style={styles.remarksTitle}>Remarks: </Text>
+                <MaterialIcons
+                  name="comment"
+                  size={16}
+                  color="#4B5563"
+                  style={styles.remarksIcon}
+                />
+                <Text style={styles.remarksTitle}>Remarks </Text>
               </View>
               <Text style={styles.remarksValue}>{item.remarks}</Text>
             </View>
@@ -509,20 +596,34 @@ const OrderHistoryScreen = () => {
           {item.transporterName && (
             <View style={styles.transporterContainer}>
               <View style={styles.transporterHeader}>
-                <MaterialIcons name="local-shipping" size={16} color="#4B5563" style={styles.transporterIcon} />
-                <Text style={styles.transporterTitle}>Transporter Name : </Text>
+                <MaterialIcons
+                  name="local-shipping"
+                  size={16}
+                  color="#4B5563"
+                  style={styles.transporterIcon}
+                />
+                <Text style={styles.transporterTitle}>Transporter Name </Text>
               </View>
-              <Text style={styles.transporterValue}>{item.transporterName}</Text>
+              <Text style={styles.transporterValue}>
+                {item.transporterName}
+              </Text>
             </View>
           )}
 
           {/* Delivery Location Field */}
           <View style={styles.locationContainer}>
             <View style={styles.locationHeader}>
-              <MaterialIcons name="location-on" size={16} color="#4B5563" style={styles.locationIcon} />
-              <Text style={styles.locationTitle}>Delivery Location : </Text>
+              <MaterialIcons
+                name="location-on"
+                size={16}
+                color="#4B5563"
+                style={styles.locationIcon}
+              />
+              <Text style={styles.locationTitle}>Delivery Location</Text>
             </View>
-            <Text style={styles.locationValue}>{item.deliveryAddress || "Not specified"}</Text>
+            <Text style={styles.locationValue}>
+              {item.deliveryAddress || 'Not specified'}
+            </Text>
           </View>
         </View>
       </View>
@@ -560,7 +661,8 @@ const OrderHistoryScreen = () => {
           <Text style={styles.errorTitle}>Server Error</Text>
           <Text style={styles.errorText}>{error}</Text>
           <Text style={styles.errorInfo}>
-            The server encountered an issue processing your request. This might be temporary.
+            The server encountered an issue processing your request. This might
+            be temporary.
           </Text>
           <TouchableOpacity
             style={styles.retryButton}
@@ -589,11 +691,11 @@ const OrderHistoryScreen = () => {
             <View style={styles.emptyContainer}>
               <MaterialIcons name="history" size={64} color="#d1d5db" />
               <Text style={styles.emptyText}>No order history found</Text>
-              {selectedStatus && (
+              {/* {selectedStatus && (
                 <Text style={styles.filterInfoText}>
                   Filter: {selectedStatus}
                 </Text>
-              )}
+              )} */}
             </View>
           }
         />
@@ -606,6 +708,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f3f4f6',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F7',
+    width: '100%',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#F8F7FF',
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  headerText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0284c7',
   },
   centered: {
     flex: 1,
@@ -685,16 +816,16 @@ const styles = StyleSheet.create({
   },
   orderIcon: {
     marginRight: 8,
-    color: '#0284C7',
+    color: '#F48221',
   },
   orderNumberLabel: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
+    fontSize: 16,
+    color: '#F48221',
+    fontWeight: '600',
   },
   orderNumberValue: {
-    fontSize: 14,
-    color: '#111827',
+    fontSize: 16,
+    color: '#F48221',
     fontWeight: '600',
     marginLeft: 4,
   },
@@ -707,7 +838,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: '#fee2e2',
+    // backgroundColor: '#fee2e2',
   },
   statusIcon: {
     marginRight: 6,
@@ -827,8 +958,35 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginRight: 4,
   },
-  vakalNoValue: {
+
+  locationContainer: {
+    backgroundColor: '#f8fafc',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  locationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  locationIcon: {
+    marginRight: 4,
+    color: '#4B5563',
+  },
+  locationTitle: {
     fontSize: 14,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  locationValue: {
+    fontSize: 15,
+    color: '#111827',
+    lineHeight: 20,
+    paddingLeft: 22,
+  },
+  vakalNoValue: {
+    fontSize: 1,
     color: '#111827',
     fontWeight: '500',
   },
@@ -877,15 +1035,16 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   dateValue: {
-    fontSize: 14,
-    marginLeft:10,
+    fontSize: 15,
+    marginLeft: 10,
     color: '#111827',
     fontWeight: '500',
   },
   closedDateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fee2e2',
+    // backgroundColor: '#fee2e2',
+    backgroundColor: '#f8fafc',
     padding: 12,
     borderRadius: 8,
     marginBottom: 12,
@@ -901,7 +1060,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   closedDateValue: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#111827',
     fontWeight: '500',
   },
@@ -952,32 +1111,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   transporterValue: {
-    fontSize: 15,
-    color: '#111827',
-    lineHeight: 20,
-    paddingLeft: 22,
-  },
-  locationContainer: {
-    backgroundColor: '#f8fafc',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 6,
-  },
-  locationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  locationIcon: {
-    marginRight: 4,
-    color: '#4B5563',
-  },
-  locationTitle: {
-    fontSize: 14,
-    color: '#4B5563',
-    fontWeight: '500',
-  },
-  locationValue: {
     fontSize: 15,
     color: '#111827',
     lineHeight: 20,

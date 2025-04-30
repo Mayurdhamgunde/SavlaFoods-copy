@@ -2,7 +2,7 @@ import {NavigationProp, RouteProp} from '@react-navigation/native';
 import axios from 'axios';
 import React, {useEffect, useState, useRef} from 'react';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import {MainStackScreenProps} from '../type/type';
+import {Image} from 'react-native';
 
 import {API_ENDPOINTS, DEFAULT_HEADERS} from '../config/api.config';
 import {
@@ -90,7 +90,10 @@ type ItemDetailsExpandedRouteProp = RouteProp<
 >;
 type ItemDetailsExpandedNavigationProp = NavigationProp<MainStackParamList>;
 
-type ItemDetailsExpandedProps = MainStackScreenProps<'ItemDetailsExpanded'>;
+interface ItemDetailsExpandedProps {
+  route: ItemDetailsExpandedRouteProp;
+  navigation: ItemDetailsExpandedNavigationProp;
+}
 
 const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
   route,
@@ -404,47 +407,59 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
                   <TouchableOpacity
                     style={styles.addToCartButton}
                     onPress={() => handleAddToCart(stock.LOT_NO)}>
-                    <View style={styles.cartIconWrapper}>
+                    {/* <View style={styles.cartIconWrapper}>
                       <Text style={styles.cartIcon}>🛒</Text>
-                    </View>
+                    </View> */}
+
+                    <Image
+                      source={require('../assets/images/cart.png')}
+                      style={{width: 32, height: 32, alignSelf: 'center'}}
+                      resizeMode="contain"
+                    />
                   </TouchableOpacity>
                 </Animated.View>
               </View>
               <View style={styles.detailsContainer}>
                 <View style={styles.detailRow}>
                   <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Unit Name</Text>
+                    <Text style={styles.detailLabel}>Unit Name:</Text>
                     <Text style={styles.detailValue}>
                       {stock.UNIT_NAME || ''}
                     </Text>
                   </View>
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Vakal No:</Text>
-                    <Text style={styles.detailValue}>{stock.VAKAL_NO || ''}</Text>
+                    <Text style={styles.detailValue}>
+                      {stock.VAKAL_NO || ''}
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.detailRow}>
                   <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Item Marks</Text>
+                    <Text style={styles.detailLabel}>Item Marks:</Text>
                     <Text style={styles.detailValue}>
                       {stock.ITEM_MARKS || ''}
                     </Text>
                   </View>
                   <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Batch No</Text>
-                    <Text style={styles.detailValue}>{stock.BATCH_NO || ''}</Text>
+                    <Text style={styles.detailLabel}>Batch No:</Text>
+                    <Text style={styles.detailValue}>
+                      {stock.BATCH_NO || ''}
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.detailRow}>
                   <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Available Quantity</Text>
+                    <Text style={styles.detailLabel}>Available Quantity:</Text>
                     <Text style={styles.detailValue}>
                       {formatQuantity(stock.AVAILABLE_QTY)}
                     </Text>
                   </View>
                   <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Remarks</Text>
-                    <Text style={styles.detailValue}>{stock.REMARKS || ''}</Text>
+                    <Text style={styles.detailLabel}>Remarks:</Text>
+                    <Text style={styles.detailValue}>
+                      {stock.REMARKS || ''}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -474,15 +489,21 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
               <Text style={[styles.tableHeaderCell, {width: 100}]}>
                 Unit Name
               </Text>
-              <Text style={[styles.tableHeaderCell, {width: 150}]}>Vakal No</Text>
+              <Text style={[styles.tableHeaderCell, {width: 150}]}>
+                Vakal No
+              </Text>
               <Text style={[styles.tableHeaderCell, {width: 150}]}>
                 Item Marks
               </Text>
-              <Text style={[styles.tableHeaderCell, {width: 120}]}>Batch No</Text>
+              <Text style={[styles.tableHeaderCell, {width: 120}]}>
+                Batch No
+              </Text>
               <Text style={[styles.tableHeaderCell, {width: 100}]}>
                 Available Qty
               </Text>
-              <Text style={[styles.tableHeaderCell, {width: 100}]}>Remarks</Text>
+              <Text style={[styles.tableHeaderCell, {width: 100}]}>
+                Remarks
+              </Text>
               <Text style={[styles.tableHeaderCell, {width: 80}]}>Action</Text>
             </View>
             <ScrollView
@@ -544,7 +565,12 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
                       <TouchableOpacity
                         style={styles.tableAddToCartButton}
                         onPress={() => handleAddToCart(stock.LOT_NO)}>
-                        <Text style={styles.tableCartIcon}>🛒</Text>
+                        <Image
+                          source={require('../assets/images/cart.png')}
+                          style={{width: 32, height: 32, alignSelf: 'center'}}
+                          resizeMode="contain"
+                        />
+                        {/* <Text style={styles.tableCartIcon}>🛒</Text> */}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -593,10 +619,10 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
         <View style={styles.mainContainer}>
           <View style={styles.headerContainer}>
             <View style={styles.searchContainer}>
-              <Icon name="search" size={24} style={{color: '#000'}} />
+              <Icon name="search" size={24} style={{color: '#777'}} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search by LotNo..."
+                placeholder="Search by lotno..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholderTextColor="#888"
@@ -648,7 +674,7 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
           </View>
 
           {isTableView ? renderTableView() : renderCardView()}
-          
+
           {/* Render modal outside of the views to ensure it's always visible */}
           {selectedStockItem && (
             <QuantitySelectorModal
@@ -724,6 +750,7 @@ const styles = StyleSheet.create({
     height: 40,
     fontSize: 14,
     color: '#1F2937',
+    paddingHorizontal: 5,
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -809,13 +836,20 @@ const styles = StyleSheet.create({
   detailLabel: {
     color: '#F48221',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     marginBottom: 4,
   },
+
   detailValue: {
     color: '#1F2937',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
+  },
+  tableContainer: {
+    flex: 1,
+    position: 'relative',
+    marginLeft: 6,
+    marginEnd: 6,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -824,12 +858,13 @@ const styles = StyleSheet.create({
     borderColor: '#dadce0',
   },
   tableHeaderCell: {
-    padding: 10,
+    paddingTop: 15,
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     borderRightWidth: 1,
     borderRightColor: '#4285f4',
+    paddingHorizontal: 10,
   },
   tableRow: {
     flexDirection: 'row',
@@ -842,7 +877,7 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     padding: 10,
-    fontSize: 13,
+    fontSize: 15,
     color: '#1F2937',
     borderRightWidth: 2,
     borderRightColor: '#dadce0',
@@ -853,7 +888,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tableAddToCartButton: {
-    backgroundColor: '#FFFDD0',
+    // backgroundColor: '#FFFDD0',
     borderRadius: 16,
     width: 32,
     height: 32,
@@ -908,15 +943,14 @@ const styles = StyleSheet.create({
   addToCartButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFDD0',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRadius: 25,
+    paddingHorizontal: 5,
+    paddingVertical: 5,
+    // borderRadius: 22,
     elevation: 3,
-    shadowColor: '#000',
+    // shadowColor: '#000',
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.2,
-    shadowRadius: 3,
+    // shadowRadius: 3,
   },
   cartIconWrapper: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -964,10 +998,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
-  tableContainer: {
-    flex: 1,
-    position: 'relative',
-  },
+
   horizontalScrollView: {
     flex: 1,
   },

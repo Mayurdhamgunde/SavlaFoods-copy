@@ -1,6 +1,12 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from 'react';
+import NetInfo, {NetInfoState} from '@react-native-community/netinfo';
+import {View, Text, StyleSheet, Dimensions} from 'react-native';
 
 // Define the context type
 interface NetworkContextType {
@@ -13,31 +19,37 @@ interface NetworkContextType {
 const NetworkContext = createContext<NetworkContextType>({
   isConnected: null,
   addRetryCallback: () => {},
-  removeRetryCallback: () => {}
+  removeRetryCallback: () => {},
 });
 
 // Custom hook to use the context
 export const useNetwork = () => useContext(NetworkContext);
 
 // The provider component
-export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const NetworkProvider: React.FC<{children: React.ReactNode}> = ({
+  children,
+}) => {
   const [isConnected, setIsConnected] = useState<boolean | null>(true);
   const [showMessage, setShowMessage] = useState(false);
-  const [previousConnected, setPreviousConnected] = useState<boolean | null>(true);
-  const [retryCallbacks, setRetryCallbacks] = useState<Record<string, () => void>>({});
+  const [previousConnected, setPreviousConnected] = useState<boolean | null>(
+    true,
+  );
+  const [retryCallbacks, setRetryCallbacks] = useState<
+    Record<string, () => void>
+  >({});
 
   // Add a callback to be executed when internet connectivity is restored
   const addRetryCallback = useCallback((id: string, callback: () => void) => {
     setRetryCallbacks(prev => ({
       ...prev,
-      [id]: callback
+      [id]: callback,
     }));
   }, []);
 
   // Remove a callback
   const removeRetryCallback = useCallback((id: string) => {
     setRetryCallbacks(prev => {
-      const newCallbacks = { ...prev };
+      const newCallbacks = {...prev};
       delete newCallbacks[id];
       return newCallbacks;
     });
@@ -55,19 +67,19 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       });
     }
-    
+
     setPreviousConnected(isConnected);
   }, [isConnected, previousConnected, retryCallbacks]);
 
   useEffect(() => {
     // Subscribe to network info updates
-    const unsubscribe = NetInfo.addEventListener((state) => {
+    const unsubscribe = NetInfo.addEventListener(state => {
       setIsConnected(state.isConnected);
       setShowMessage(!state.isConnected);
     });
 
     // Initial check
-    NetInfo.fetch().then((state) => {
+    NetInfo.fetch().then(state => {
       setIsConnected(state.isConnected);
       setShowMessage(!state.isConnected);
     });
@@ -79,7 +91,8 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   return (
-    <NetworkContext.Provider value={{ isConnected, addRetryCallback, removeRetryCallback }}>
+    <NetworkContext.Provider
+      value={{isConnected, addRetryCallback, removeRetryCallback}}>
       {children}
       {showMessage && (
         <View style={styles.offlineContainer}>
@@ -90,7 +103,7 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
-const { width } = Dimensions.get('window');
+const {width} = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   offlineContainer: {
@@ -108,4 +121,4 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
-}); 
+});

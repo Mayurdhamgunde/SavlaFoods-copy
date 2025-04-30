@@ -14,7 +14,12 @@ import {
   Animated,
   BackHandler,
 } from 'react-native';
-import {useNavigation, useRoute, RouteProp, useFocusEffect} from '@react-navigation/native';
+import {
+  useNavigation,
+  useRoute,
+  RouteProp,
+  useFocusEffect,
+} from '@react-navigation/native';
 import {NavigationProp} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -75,7 +80,7 @@ type SearchResultItem = {
   SUB_CATEGORY_NAME: string;
   CATEGORY_IMAGE_NAME: string;
   SUBCATEGORY_IMAGE_NAME: string;
-  // Additional properties for UI
+
   imageUrl?: any;
 };
 
@@ -131,25 +136,29 @@ const HomeScreen: React.FC = () => {
           setSearchResults([]);
           return true; // Prevent default behavior
         }
-        
+
         // If no search is active, show exit app dialog
         // Check if user is authenticated
         const isAuthenticated = CustomerID !== null;
-        
+
         if (isAuthenticated) {
           // If authenticated, prevent going back to login screen
           Alert.alert(
-            'Exit App', 
+            'Exit App',
             'Do you want to exit the app?',
             [
-              { text: 'Cancel', style: 'cancel', onPress: () => {} },
-              { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() }
+              {text: 'Cancel', style: 'cancel', onPress: () => {}},
+              {
+                text: 'Exit',
+                style: 'destructive',
+                onPress: () => BackHandler.exitApp(),
+              },
             ],
-            { cancelable: true }
+            {cancelable: true},
           );
           return true; // Prevent default behavior
         }
-        
+
         // Default behavior (allow back navigation)
         return false;
       };
@@ -158,8 +167,9 @@ const HomeScreen: React.FC = () => {
       BackHandler.addEventListener('hardwareBackPress', onBackPress);
 
       // Cleanup function
-      return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
-    }, [CustomerID, searchQuery])
+      return () =>
+        BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+    }, [CustomerID, searchQuery]),
   );
 
   const handleAccountSwitch = useCallback(() => {
@@ -425,7 +435,7 @@ const HomeScreen: React.FC = () => {
                 //     Alert.alert('Error', 'Customer ID not available');
                 //   }
                 // }}
-                >
+              >
                 <Text style={styles.lotNoValue}>{item.LOT_NO || 'N/A'}</Text>
               </TouchableOpacity>
             </View>
@@ -449,7 +459,12 @@ const HomeScreen: React.FC = () => {
                 style={styles.addToCartButton}
                 onPress={() => handleAddToCart(item)}>
                 <View style={styles.cartIconWrapper}>
-                  <Text style={styles.cartIcon}>🛒</Text>
+                  {/* <Text style={styles.cartIcon}>🛒</Text> */}
+                  <Image
+                    source={require('../assets/images/cart.png')}
+                    style={{width: 32, height: 32, alignSelf: 'center'}}
+                    resizeMode="contain"
+                  />
                 </View>
               </TouchableOpacity>
             </Animated.View>
@@ -586,16 +601,23 @@ const HomeScreen: React.FC = () => {
           searchItems(searchQuery);
         }
       };
-      
+
       // Register the callback
       addRetryCallback('homescreen-refresh', refreshData);
-      
+
       // Cleanup - remove the callback when component unmounts
       return () => {
         removeRetryCallback('homescreen-refresh');
       };
     }
-  }, [CustomerID, searchQuery, addRetryCallback, removeRetryCallback, fetchCategories, searchItems]);
+  }, [
+    CustomerID,
+    searchQuery,
+    addRetryCallback,
+    removeRetryCallback,
+    fetchCategories,
+    searchItems,
+  ]);
 
   // Monitor network connectivity changes for UI feedback
   useEffect(() => {
@@ -610,18 +632,16 @@ const HomeScreen: React.FC = () => {
   }, [isConnected, wasDisconnected]);
 
   return (
-    <LayoutWrapper
-      showTabBar={false}
-      route={route}>
+    <LayoutWrapper showTabBar={false} route={route}>
       <View style={styles.searchContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           activeOpacity={0.9}
           style={styles.searchInputContainer}
           onPress={handleSearchSubmit}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search lot numbers, item marks, vakal no.."
-            placeholderTextColor={'#888'}
+            placeholder="Search lot nos, item marks, vakal no.."
+            placeholderTextColor={'#999'}
             value={searchQuery}
             onChangeText={handleSearch}
             onSubmitEditing={handleSearchSubmit}
@@ -630,9 +650,18 @@ const HomeScreen: React.FC = () => {
             numberOfLines={1}
           />
           {isSearching ? (
-            <ActivityIndicator size="small" color="#F48221" style={styles.searchIcon} />
+            <ActivityIndicator
+              size="small"
+              color="#F48221"
+              style={styles.searchIcon}
+            />
           ) : (
-            <Icon name="search" size={24} color="#555" style={styles.searchIcon} />
+            <Icon
+              name="search"
+              size={24}
+              color="#555"
+              style={styles.searchIcon}
+            />
           )}
         </TouchableOpacity>
       </View>
@@ -735,7 +764,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#777',
     paddingRight: 7,
     width: '100%',
   },
@@ -746,7 +775,7 @@ const styles = StyleSheet.create({
     paddingRight: 45,
     paddingVertical: 0,
     textAlignVertical: 'center',
-    fontSize: 13,
+    fontSize: 14,
     width: '85%',
   },
   searchIcon: {
@@ -809,7 +838,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   headingText: {
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: 'bold',
   },
   moreText: {
@@ -900,7 +929,7 @@ const styles = StyleSheet.create({
   addToCartButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFDD0',
+    // backgroundColor: '#FFFDD0',
     paddingHorizontal: 8,
     paddingVertical: 8,
     borderRadius: 25,
