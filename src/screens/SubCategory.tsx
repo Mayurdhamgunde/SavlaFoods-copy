@@ -1,6 +1,5 @@
 //Mayur
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import axios from 'axios';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
@@ -31,6 +30,8 @@ import {
 } from '../utils/imageRegistry';
 import {API_BASE_URL} from '../config/api.config';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import {getSecureItem, setSecureItem} from '../utils/secureStorage';
+import {getSecureOrAsyncItem} from '../utils/migrationHelper';
 
 interface CustomToastProps {
   message: string;
@@ -169,7 +170,7 @@ const SubCategory: React.FC = () => {
   useEffect(() => {
     const fetchCustomerID = async () => {
       try {
-        let id = await AsyncStorage.getItem('customerID');
+        let id = await getSecureOrAsyncItem('customerID');
         if (id) {
           setCustomerID(id);
         } else {
@@ -177,7 +178,7 @@ const SubCategory: React.FC = () => {
           id = response.data.customerID;
           if (id) {
             setCustomerID(id);
-            await AsyncStorage.setItem('customerID', id);
+            await setSecureItem('customerID', id);
           }
         }
       } catch (error) {
@@ -518,12 +519,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 5,
+    zIndex: 2,
   },
   inactiveSort: {
     backgroundColor: 'transparent',
+    borderWidth: 0,
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOffset: {width: 0, height: 0},
+    shadowOpacity: 0,
+    shadowRadius: 0,
   },
   sortIcon: {
     margin: 0,

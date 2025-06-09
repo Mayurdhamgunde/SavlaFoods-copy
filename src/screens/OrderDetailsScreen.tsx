@@ -11,6 +11,7 @@ import {
   Modal,
   Image,
   Animated,
+  TextInput,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {RouteProp} from '@react-navigation/native';
@@ -22,6 +23,8 @@ import {
   NavigationProp,
   CommonActions,
 } from '@react-navigation/native';
+import {LayoutWrapper} from '../components/AppLayout';
+import {useCustomer} from '../contexts/DisplayNameContext'; // Import useCustomer hook
 
 interface OrderItem {
   detailId?: number;
@@ -38,6 +41,7 @@ interface OrderItem {
 }
 
 interface Order {
+  orderBy: string;
   orderId: number;
   orderNo: string;
   orderDate: string;
@@ -54,7 +58,9 @@ interface Order {
 
 interface RouteParams {
   order: Order;
+  unitName: string;
   fromEditScreen?: boolean; // Add this parameter to track if we came from edit screen
+  timestamp?: number; // Add timestamp property to fix TypeScript error
 }
 
 const OrderDetailsScreen = ({
@@ -63,7 +69,8 @@ const OrderDetailsScreen = ({
   route: RouteProp<{params: RouteParams}, 'params'>;
 }) => {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
-  const {order, fromEditScreen} = route.params;
+  const {order, unitName, fromEditScreen} = route.params;
+  const {customerID} = useCustomer(); // Get customerID from context
 
   // Initialize state with order items from the route params
   const [orderItems, setOrderItems] = React.useState<OrderItem[]>(
@@ -85,6 +92,8 @@ const OrderDetailsScreen = ({
   const [selectedItem, setSelectedItem] = React.useState<OrderItem | null>(
     null,
   );
+  const [deleteModalVisible, setDeleteModalVisible] = React.useState(false);
+  const [itemToDelete, setItemToDelete] = React.useState<OrderItem | null>(null);
   const [toastVisible, setToastVisible] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState(
@@ -95,82 +104,123 @@ const OrderDetailsScreen = ({
   );
   const toastOpacity = React.useRef(new Animated.Value(0)).current;
   const toastOffset = React.useRef(new Animated.Value(300)).current;
+  const [selectedOrder, setSelectedOrder] = React.useState<Order | null>(null);
+  const [cancelRemark, setCancelRemark] = React.useState('');
+  const [deletingItemId, setDeletingItemId] = React.useState<number | null>(null);
 
-  // Format date for display
-  // const formatDate = (dateString: string) => {
-  //   try {
-  //     if (!dateString) return 'N/A';
+  const handleDeleteItem = (itemToDelete: OrderItem) => {
+    // Check if the item has a detailId
+    if (!itemToDelete.detailId) {
+      showToast('Cannot delete: Missing item detail ID', 'error');
+      return;
+    }
 
-  //     // Check if the date is too far in the future or past
-  //     // This will fix the "Date value out of bounds" error
-  //     const currentYear = new Date().getFullYear();
-  //     if (dateString.includes('-')) {
-  //       const year = parseInt(dateString.split('-')[0], 10);
-  //       // JavaScript dates are typically limited to around ±275,000 years from 1970
-  //       // To be safe, limit to ±100 years from current
-  //       if (year > currentYear + 100 || year < currentYear - 100) {
-  //         console.warn('Date year out of reasonable range:', year);
-  //         // Return a more user-friendly formatted version of the date
-  //         const parts = dateString.split('-');
-  //         if (parts.length === 3) {
-  //           const [year, month, day] = parts;
-  //           // Format manually with minimal processing to avoid Date constructor issues
-  //           const monthNames = [
-  //             'January',
-  //             'February',
-  //             'March',
-  //             'April',
-  //             'May',
-  //             'June',
-  //             'July',
-  //             'August',
-  //             'September',
-  //             'October',
-  //             'November',
-  //             'December',
-  //           ];
-  //           const monthIndex = parseInt(month, 10) - 1;
-  //           if (monthIndex >= 0 && monthIndex < 12) {
-  //             return `${monthNames[monthIndex]} ${parseInt(day, 10)}, ${year}`;
-  //           }
-  //         }
-  //         return dateString;
-  //       }
-  //     }
+    // Check if customerID is available
+    if (!customerID) {
+      showToast('Cannot delete: Customer ID not found', 'error');
+      return;
+    }
 
-  //     // Handle invalid date strings
-  //     const date = new Date(dateString);
-  //     if (isNaN(date.getTime())) {
-  //       return dateString; // Return original string if it can't be parsed
-  //     }
+    // Log the full item object to verify its structure
+    console.log('Full item object:', JSON.stringify(itemToDelete, null, 2));
+    
+    // Log the detailId to verify it's correct
+    console.log('Deleting item with detailId:', itemToDelete.detailId);
 
-  //     // Convert month number to month name
-  //     const monthNames = [
-  //       'January',
-  //       'February',
-  //       'March',
-  //       'April',
-  //       'May',
-  //       'June',
-  //       'July',
-  //       'August',
-  //       'September',
-  //       'October',
-  //       'November',
-  //       'December',
-  //     ];
+    // Set the deleting item ID to show loading indicator
+    setDeletingItemId(itemToDelete.detailId);
+    setIsLoading(true);
 
-  //     const year = date.getFullYear();
-  //     const month = monthNames[date.getMonth()];
-  //     const day = date.getDate();
+    // Prepare the request body - only include detailIds
+    const requestBody = {
+      detailIds: [itemToDelete.detailId]
+    };
 
-  //     // Format the date manually
-  //     return `${month} ${day}, ${year}`;
-  //   } catch (error) {
-  //     console.error('Error formatting date:', error, dateString);
-  //     return dateString; // Return original string on error
-  //   }
-  // };
+    // Construct the full URL
+    const apiUrl = `${API_ENDPOINTS.DELETE_ORDER}?customerId=${customerID}`;
+    
+    console.log('Delete API URL:', apiUrl);
+    console.log('Delete request payload:', JSON.stringify(requestBody, null, 2));
+
+    // Call the DELETE_ORDER API with customerId as URL parameter
+    axios.post(
+      apiUrl,
+      requestBody,
+      {
+        headers: DEFAULT_HEADERS,
+        timeout: 10000,
+      }
+    )
+    .then(response => {
+      console.log('Delete API response:', JSON.stringify(response.data, null, 2));
+      
+      if (response.data.success) {
+        // Filter out the deleted item
+        const updatedItems = orderItems.filter(
+          item => item.detailId !== itemToDelete.detailId
+        );
+        
+        setOrderItems(updatedItems);
+        
+        // Show success toast
+        showToast(`Order deleted successfully`, 'success');
+        
+        // Check if the order was completely emptied and cancelled
+        if (response.data.data.emptyOrdersCancelled?.includes(order.orderId)) {
+          showToast('Order deleted successfully', 'success');
+          setTimeout(() => navigation.goBack(), 1500);
+        } else if (updatedItems.length === 0) {
+          // If all items are deleted locally but not reflected in API response
+          setTimeout(() => navigation.goBack(), 1500);
+        }
+      } else {
+        showToast(response.data.message || 'Failed to delete item', 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Error deleting item:', error);
+      
+      // Log more detailed error information
+      if (axios.isAxiosError(error)) {
+        console.log('Axios error details:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          responseData: error.response?.data,
+          message: error.message,
+          code: error.code,
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+          requestData: error.config?.data,
+        });
+        
+        // Provide more specific error messages based on the error type
+        if (error.code === 'ECONNABORTED') {
+          showToast('Request timed out. Please try again.', 'error');
+        } else if (error.code === 'ERR_NETWORK') {
+          showToast(
+            'Cannot connect to server. Please check your network connection.',
+            'error',
+          );
+        } else if (error.response) {
+          // The request was made and the server responded with a status code outside of 2xx range
+          const errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+          showToast(errorMessage, 'error');
+        } else if (error.request) {
+          // The request was made but no response was received
+          showToast('No response from server. Please try again.', 'error');
+        } else {
+          showToast(`Error: ${error.message}`, 'error');
+        }
+      } else {
+        showToast(`Error: ${error.message || 'Unknown error occurred'}`, 'error');
+      }
+    })
+    .finally(() => {
+      setIsLoading(false);
+      setDeletingItemId(null);
+    });
+  };
 
   const formatDate = (dateString: string) => {
     try {
@@ -226,8 +276,9 @@ const OrderDetailsScreen = ({
       return dateString; // Return original string on error
     }
   };
-  const showCancelConfirmation = (item: OrderItem) => {
-    setSelectedItem(item);
+  const showCancelConfirmation = (order: Order) => {
+    setSelectedOrder(order);
+    // setSelectedItem(item);
     setModalVisible(true);
   };
 
@@ -288,10 +339,9 @@ const OrderDetailsScreen = ({
     });
     return unsubscribe;
   }, [navigation, route.params]);
-
   const handleCancelOrder = async () => {
-    if (!selectedItem || !selectedItem.detailId) {
-      showToast('Cannot cancel order: Missing detail ID', 'error');
+    if (!order?.orderNo) {
+      showToast('Cannot cancel order: Missing order number', 'error');
       setModalVisible(false);
       return;
     }
@@ -299,46 +349,52 @@ const OrderDetailsScreen = ({
     setIsLoading(true);
 
     try {
-      // Log request details for debugging
-      console.log('Making API request to:', API_ENDPOINTS.GET_CANCEL_ORDER);
+      console.log('Cancelling order with number:', order.orderNo);
+      console.log('API endpoint:', API_ENDPOINTS.GET_CANCEL_ORDER);
       console.log('Request payload:', {
-        detailId: selectedItem.detailId,
-        cancelRemark: 'Cancelled via mobile app',
+        orderNo: order.orderNo,
+        cancelRemark: cancelRemark,
         cancelledBy: 'MOBILE_USER',
       });
 
-      // Add a timeout to the axios request
       const response = await axios.post(
         API_ENDPOINTS.GET_CANCEL_ORDER,
         {
-          detailId: selectedItem.detailId,
-          cancelRemark: 'Cancelled via mobile app',
+          orderNo: order.orderNo,
+          cancelRemarks: cancelRemark,
           cancelledBy: 'MOBILE_USER',
         },
         {
           headers: DEFAULT_HEADERS,
-          timeout: 10000, // 10 second timeout
+          timeout: 10000,
         },
       );
 
-      // With axios, we directly get the data from the response
-      const result = response.data;
+      console.log('API response:', JSON.stringify(response.data, null, 2));
 
-      if (result.success) {
-        // Remove the cancelled item from the order items list
-        if (selectedItem && selectedItem.detailId) {
-          // Filter out the cancelled item
-          setOrderItems(
-            orderItems.filter(item => item.detailId !== selectedItem.detailId),
-          );
-        }
-
+      if (response.data.success) {
+        // Clear all items
+        setOrderItems([]);
         showToast('Order cancelled successfully!', 'success');
+        // Navigate back after 1.5 seconds
+        setTimeout(() => navigation.goBack(), 1500);
       } else {
-        showToast(result.message || 'Failed to cancel order', 'error');
+        console.log('API call failed with message:', response.data.message);
+        showToast(response.data.message || 'Failed to cancel order', 'error');
       }
     } catch (error: any) {
       console.error('Error cancelling order:', error);
+
+      // Log detailed error information
+      if (axios.isAxiosError(error)) {
+        console.log('Axios error details:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          responseData: error.response?.data,
+          message: error.message,
+          code: error.code,
+        });
+      }
 
       // Provide more specific error messages based on the error type
       if (axios.isAxiosError(error)) {
@@ -367,6 +423,8 @@ const OrderDetailsScreen = ({
     } finally {
       setIsLoading(false);
       setModalVisible(false);
+      // Reset cancel remark to default for next time
+      setCancelRemark('');
     }
   };
 
@@ -378,321 +436,400 @@ const OrderDetailsScreen = ({
   }, [route.params?.timestamp]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={backHandler}>
-          <MaterialIcons name="arrow-back" size={24} color="#0284C7" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Order Details</Text>
-        {order.status === 'NEW' && orderItems.length > 0 && (
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => {
-              navigation.navigate('EditOrderScreen', {order: order});
-            }}>
-            <MaterialIcons name="edit" size={24} color="#0284c7" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.purpleHeaderCard}>
-          <View style={styles.purpleHeader}>
-            <View style={styles.headerContent}>
-              <MaterialIcons name="shopping-bag" size={24} color="#ffffff" />
-              <Text style={styles.purpleHeaderText}>
-                Order #{order.orderNo}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.whiteCardContent}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <View style={styles.infoIcon}>
-                  <MaterialIcons name="event" size={16} color="#0284C7" />
-                </View>
-                <View>
-                  <Text style={styles.infoLabelNew}>Order Date</Text>
-                  {/* <Text style={styles.infoValueNew}>
-                    {formatDate(order.orderDate)}
-                  </Text> */}
-
-                  <Text style={styles.infoValueNew}>
-                    {formatDate(
-                      new Date(
-                        new Date(order.orderDate).setDate(
-                          new Date(order.orderDate).getDate(),
-                        ),
-                      )
-                        .toISOString()
-                        .split('T')[0],
-                    )}
-                  </Text>
-                </View>
+    <LayoutWrapper showHeader={true} showTabBar={true} route={route}>
+      <SafeAreaView style={styles.container}>
+        <ScrollView style={styles.scrollView}>
+          <View style={styles.purpleHeaderCard}>
+            <View style={styles.purpleHeader}>
+              <View style={styles.headerContent}>
+                <MaterialIcons name="shopping-bag" size={24} color="#ffffff" />
+                <Text style={styles.purpleHeaderText}>
+                  Order #{order.orderNo}
+                </Text>
               </View>
-
-              <View style={styles.infoItem}>
-                <View style={styles.infoIcon}>
-                  <MaterialIcons
-                    name="local-shipping"
-                    size={16}
-                    color="#0284C7"
-                  />
-                </View>
-                <View>
-                  <Text style={styles.infoLabelNew}>Delivery Date</Text>
-                  <Text style={styles.infoValueNew}>
-                    {formatDate(order.deliveryDate)}
-                  </Text>
-                </View>
-              </View>
+              {order.status === 'NEW' && orderItems.length > 0 && (
+                <TouchableOpacity
+                  style={styles.editButton}
+                  onPress={() => {
+                    navigation.navigate('EditOrderScreen', {order: order});
+                  }}>
+                  <MaterialIcons name="edit" size={24} color="white" />
+                </TouchableOpacity>
+              )}
             </View>
 
-            <View style={styles.dividerHorizontal} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <View style={styles.infoIcon}>
-                  <MaterialIcons
-                    name="directions-bus"
-                    size={16}
-                    color="#0284C7"
-                  />
+            <View style={styles.whiteCardContent}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <View style={styles.infoIcon}>
+                    <MaterialIcons name="event" size={16} color="#0284C7" />
+                  </View>
+                  <View>
+                    <Text style={styles.infoLabelNew}>Order Date</Text>
+                    <Text style={styles.infoValueNew}>
+                      {formatDate(
+                        new Date(
+                          new Date(order.orderDate).setDate(
+                            new Date(order.orderDate).getDate(),
+                          ),
+                        )
+                          .toISOString()
+                          .split('T')[0],
+                      )}
+                    </Text>
+                  </View>
                 </View>
-                <View style={{flex: 1}}>
-                  <Text style={styles.infoLabelNew}>Transporter</Text>
-                  <Text
-                    style={[styles.infoValueNew, styles.transporterText]}
-                    numberOfLines={3}>
-                    {order.transporterName || 'Qqq'}
-                  </Text>
-                </View>
-              </View>
-            </View>
 
-            <View style={styles.dividerHorizontal} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <View style={styles.infoIcon}>
-                  <MaterialIcons name="location-on" size={16} color="#0284C7" />
-                </View>
-                <View>
-                  <Text style={styles.infoLabelNew}>Delivery Location</Text>
-                  <View style={styles.locationBox}>
-                    <Text style={styles.locationText}>
-                      {order.deliveryAddress || 'N/A'}
+                <View style={styles.infoItem}>
+                  <View style={styles.infoIcon}>
+                    <MaterialIcons
+                      name="local-shipping"
+                      size={16}
+                      color="#0284C7"
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.infoLabelNew}>Delivery Date</Text>
+                    <Text style={styles.infoValueNew}>
+                      {formatDate(order.deliveryDate)}
                     </Text>
                   </View>
                 </View>
               </View>
+
+              <View style={styles.dividerHorizontal} />
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <View style={styles.infoIcon}>
+                    <MaterialIcons
+                      name="directions-bus"
+                      size={16}
+                      color="#0284C7"
+                    />
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.infoLabelNew}>Order By</Text>
+                    <Text
+                      style={[styles.infoValueNew, styles.transporterText]}
+                      numberOfLines={3}>
+                      {order.orderBy || 'Qqq'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.dividerHorizontal} />
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <View style={styles.infoIcon}>
+                    <MaterialIcons
+                      name="directions-bus"
+                      size={16}
+                      color="#0284C7"
+                    />
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.infoLabelNew}>Transporter Name</Text>
+                    <Text
+                      style={[styles.infoValueNew, styles.transporterText]}
+                      numberOfLines={3}>
+                      {order.transporterName || 'Qqq'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.dividerHorizontal} />
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <View style={styles.infoIcon}>
+                    <MaterialIcons
+                      name="location-on"
+                      size={16}
+                      color="#0284C7"
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.infoLabelNew}>Delivery Location</Text>
+                    <View style={styles.locationBox}>
+                      <Text style={styles.locationText}>
+                        {order.deliveryAddress || 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.dividerHorizontal} />
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <View style={styles.infoIcon}>
+                    <MaterialIcons name="comment" size={16} color="#0284C7" />
+                  </View>
+                  <View>
+                    <Text style={styles.infoLabelNew}>Remarks</Text>
+                    <View style={styles.locationBox}>
+                      <Text style={styles.locationText}>
+                        {order.remarks || 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
             </View>
           </View>
-        </View>
 
-        {orderItems && orderItems.length > 0 ? (
-          orderItems.map((item: OrderItem, index: number) => (
-            <View
-              key={`item-${item.detailId || index}`}
-              style={styles.itemCard}>
-              <View style={styles.itemHeader}>
-                <View style={styles.itemNameContainer}>
-                  <MaterialIcons name="inventory" size={18} color="#0369a1" />
-                  <Text style={styles.itemName}>{item.itemName}</Text>
-                </View>
-                <View style={styles.statusBadge}>
-                  <MaterialIcons
-                    name="check-circle"
-                    size={14}
-                    color="#0284c7"
-                  />
-                  <Text style={styles.statusText}>{item.status}</Text>
-                </View>
-              </View>
-
-              <View style={styles.lotNoContainer}>
-                <MaterialIcons name="label" size={16} color="#f97316" />
-                <Text style={styles.lotNo}>Lot No: {item.lotNo || 'N/A'}</Text>
-              </View>
-
-              <View style={styles.itemDetailsGrid}>
-                <View style={styles.itemDetail}>
-                  <MaterialIcons name="bookmark" size={14} color="#6B7280" />
-                  <Text style={styles.detailLabel}>Item Marks:</Text>
-                  <Text style={styles.detailValue}>
-                    {item.itemMarks || 'N/A'}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.itemDetail}>
-                <MaterialIcons name="description" size={14} color="#6B7280" />
-                <Text style={styles.detailLabel}>Vakal No:</Text>
-                <Text style={styles.detailValue}>{item.vakalNo || 'N/A'}</Text>
-              </View>
-
-              <View style={styles.quantityContainer}>
-                <View style={styles.quantityColumn}>
-                  <View style={styles.quantityLabelRow}>
-                    <MaterialIcons
-                      name="shopping-cart"
-                      size={18}
-                      color="#0369a1"
-                    />
-                    <Text style={styles.quantityLabel}>Ordered</Text>
-                  </View>
-                  <Text style={styles.quantityValue}>{item.requestedQty}</Text>
-                </View>
-                <View style={styles.quantityDivider} />
-                <View style={styles.quantityColumn}>
-                  <View style={styles.quantityLabelRow}>
+          {orderItems && orderItems.length > 0 ? (
+            orderItems.map((item: OrderItem, index: number) => (
+              <View
+                key={`item-${item.detailId || index}`}
+                style={styles.itemCard}>
+                <View style={styles.itemHeader}>
+                  <View style={styles.itemNameContainer}>
                     <MaterialIcons name="inventory" size={18} color="#0369a1" />
-                    <Text style={styles.quantityLabel}>Available</Text>
+                    <Text style={styles.itemName}>{item.itemName}</Text>
                   </View>
-                  <Text style={styles.quantityValue}>{item.availableQty}</Text>
+                  <TouchableOpacity 
+                    style={styles.deleteIconButton}
+                    disabled={deletingItemId === item.detailId}
+                    onPress={() => {
+                      // Show custom delete modal
+                      setItemToDelete(item);
+                      setDeleteModalVisible(true);
+                    }}>
+                    {deletingItemId === item.detailId ? (
+                      <View style={styles.loadingContainer}>
+                        <Text style={styles.loadingText}>Deleting...</Text>
+                      </View>
+                    ) : (
+                      <MaterialIcons name="delete" size={20} color="#ef4444" />
+                    )}
+                  </TouchableOpacity>
                 </View>
-              </View>
-
-              <View style={styles.itemDetailsGrid}>
-                <View style={styles.itemDetail}>
-                  <MaterialIcons name="straighten" size={14} color="#6B7280" />
-                  <Text style={styles.detailLabel}>Unit:</Text>
-                  <Text style={styles.detailValue}>
-                    {item.unitName || 'N/A'}
+                <View style={styles.lotNoContainer}>
+                  <MaterialIcons name="label" size={16} color="#f97316" />
+                  <Text style={styles.lotNo}>
+                    Lot No: {item.lotNo || 'N/A'}
                   </Text>
                 </View>
+                <View style={styles.itemDetailsGrid}>
+                  <View style={styles.itemDetail}>
+                    <MaterialIcons name="bookmark" size={14} color="#6B7280" />
+                    <Text style={styles.detailLabel}>Item Marks:</Text>
+                    <Text style={styles.detailValue}>
+                      {item.itemMarks || 'N/A'}
+                    </Text>
+                  </View>
+                </View>
                 <View style={styles.itemDetail}>
-                  <MaterialIcons name="scale" size={14} color="#6B7280" />
-                  <Text style={styles.detailLabel}>Net Qty:</Text>
-                  <View
-                    style={[
-                      styles.netQtyContainer,
-                      item.availableQty - item.requestedQty < 0
-                        ? styles.negativeQtyContainer
-                        : item.availableQty - item.requestedQty > 0
-                        ? styles.positiveQtyContainer
-                        : null,
-                    ]}>
+                  <MaterialIcons name="description" size={14} color="#6B7280" />
+                  <Text style={styles.detailLabel}>Vakal No:</Text>
+                  <Text style={styles.detailValue}>
+                    {item.vakalNo || 'N/A'}
+                  </Text>
+                </View>
+
+                <View style={styles.quantityContainerNew}>
+                  <View style={styles.quantityBox}>
+                    <Text style={styles.quantityLabelNew}>Available</Text>
+                    <Text style={styles.quantityValueNew}>
+                      {item.availableQty}
+                    </Text>
+                  </View>
+                  <View style={styles.quantityDividerNew} />
+                  <View style={styles.quantityBox}>
+                    <Text style={styles.quantityLabelNew}>Net Qty</Text>
                     <Text
                       style={[
-                        styles.detailValue,
-                        item.availableQty - item.requestedQty < 0
-                          ? styles.negativeQuantity
-                          : item.availableQty - item.requestedQty > 0
-                          ? styles.positiveQuantity
-                          : null,
+                        styles.quantityValueNew,
+                        item.availableQty - item.requestedQty < 0 &&
+                          styles.negativeQuantity,
+                        item.availableQty - item.requestedQty > 0 &&
+                          styles.positiveQuantity,
                       ]}>
-                      {item.availableQty - item.requestedQty > 0 ? '+' : ''}
                       {item.availableQty - item.requestedQty}
                     </Text>
                   </View>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => showCancelConfirmation(item)}
-                disabled={isLoading}>
-                <MaterialIcons name="cancel" size={16} color="#fff" />
-                <Text style={styles.cancelButtonText}>
-                  {isLoading ? 'Processing...' : 'Cancel Order'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ))
-        ) : (
-          <View style={styles.noItemsContainer}>
-            <MaterialIcons name="info" size={48} color="#9ca3af" />
-            <Text style={styles.noItemsText}>
-              All order items have been cancelled
-            </Text>
-            <TouchableOpacity
-              style={styles.backToOrdersButton}
-              onPress={() => navigation.goBack()}>
-              <MaterialIcons name="arrow-back" size={16} color="#fff" />
-              <Text style={styles.backToOrdersText}>Back to Orders</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Custom Cancel Alert Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <MaterialIcons name="error-outline" size={40} color="#ef4444" />
-              <Text style={styles.modalTitle}>Cancel Order</Text>
-            </View>
-
-            <View style={styles.modalBody}>
-              <Text style={styles.modalMessage}>
-                Are you sure you want to cancel order for:
-              </Text>
-
-              {selectedItem && (
-                <View style={styles.selectedItemContainer}>
-                  <Text style={styles.selectedItemName}>
-                    {selectedItem.itemName}
-                  </Text>
-                  <View style={styles.selectedItemDetails}>
-                    <MaterialIcons name="label" size={16} color="#f97316" />
-                    <Text style={styles.selectedItemLot}>
-                      Lot No: {selectedItem.lotNo || 'N/A'}
+                  <View style={styles.quantityDividerNew} />
+                  <View style={styles.quantityBox}>
+                    <Text style={styles.quantityLabelNew}>Ordered</Text>
+                    <Text style={styles.quantityValueNew}>
+                      {item.requestedQty}
                     </Text>
                   </View>
                 </View>
-              )}
-
-              <Text style={styles.modalWarning}>
-                This action cannot be undone.
+              </View>
+            ))
+          ) : (
+            <View style={styles.noItemsContainer}>
+              <MaterialIcons name="info" size={48} color="#9ca3af" />
+              <Text style={styles.noItemsText}>
+                All order items have been cancelled
               </Text>
-            </View>
-
-            <View style={styles.modalActions}>
               <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setModalVisible(false)}>
-                <Text style={styles.modalCancelText}>Keep Order</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalConfirmButton}
-                onPress={handleCancelOrder}>
-                <MaterialIcons name="delete" size={16} color="#fff" />
-                <Text style={styles.modalConfirmText}>Yes, Cancel</Text>
+                style={styles.backToOrdersButton}
+                onPress={() => navigation.goBack()}>
+                <MaterialIcons name="arrow-back" size={16} color="#fff" />
+                <Text style={styles.backToOrdersText}>Back to Orders</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
+          )}
+        </ScrollView>
 
-      {/* Custom Toast Notification */}
-      {toastVisible && (
-        <Animated.View
-          style={[
-            styles.toast,
-            {
-              opacity: toastOpacity,
-              transform: [{translateX: toastOffset}],
-            },
-            toastType === 'error' ? styles.errorToast : styles.successToast,
-          ]}>
-          <View style={styles.toastContent}>
-            <MaterialIcons
-              name={toastType === 'success' ? 'check-circle' : 'error'}
-              size={24}
-              color={toastType === 'success' ? '#22c55e' : '#ef4444'}
-            />
-            <Text style={styles.toastMessage}>{toastMessage}</Text>
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <MaterialIcons name="error-outline" size={28} color="#ef4444" />
+                <Text style={styles.modalTitle}>Cancel Order</Text>
+              </View>
+
+              <View style={styles.modalBody}>
+                <Text style={styles.modalMessage}>
+                  Are you sure you want to cancel this order?
+                </Text>
+
+                <View style={styles.compactOrderContainer}>
+                  <MaterialIcons
+                    name="shopping-bag"
+                    size={16}
+                    color="#0284C7"
+                  />
+                  <Text style={styles.compactOrderText}>
+                    Order No: #{order.orderNo}
+                  </Text>
+                </View>
+
+                <View style={styles.cancelRemarkContainer}>
+                  <Text style={styles.cancelRemarkLabel}>
+                    Cancellation Remarks:
+                  </Text>
+                  <TextInput
+                    style={styles.cancelRemarkInput}
+                    value={cancelRemark}
+                    onChangeText={setCancelRemark}
+                    placeholder="Enter reason for cancellation"
+                    placeholderTextColor="#9ca3af"
+                    multiline={true}
+                    numberOfLines={2}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setModalVisible(false)}>
+                  <Text style={styles.modalCancelText}>Keep Order</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalConfirmButton}
+                  onPress={handleCancelOrder}
+                  disabled={isLoading}>
+                  <MaterialIcons name="delete" size={16} color="#fff" />
+                  <Text style={styles.modalConfirmText}>
+                    {isLoading ? 'Cancelling...' : 'Confirm Cancel'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-        </Animated.View>
-      )}
-    </SafeAreaView>
+        </Modal>
+
+        {/* Custom Delete Confirmation Modal */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={deleteModalVisible}
+          onRequestClose={() => setDeleteModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.deleteModalContent}>
+              <View style={styles.deleteModalHeader}>
+                <Text style={styles.warningIcon}>⚠️</Text>
+                <Text style={styles.deleteModalTitle}>Delete Item?</Text>
+              </View>
+
+              <View style={styles.deleteModalBody}>
+                <Text style={styles.deleteModalMessage}>
+                  Are you sure you want to delete:
+                </Text>
+                {itemToDelete && (
+                  <Text style={styles.deleteItemName}>
+                    "{itemToDelete.itemName}"
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.deleteModalActions}>
+                <TouchableOpacity
+                  style={styles.keepItemButton}
+                  onPress={() => setDeleteModalVisible(false)}>
+                  <Text style={styles.keepItemText}>KEEP ITEM</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.confirmDeleteButton}
+                  onPress={() => {
+                    setDeleteModalVisible(false);
+                    if (itemToDelete) {
+                      handleDeleteItem(itemToDelete);
+                    }
+                  }}
+                  disabled={isLoading}>
+                  <Text style={styles.confirmDeleteText}>
+                    {isLoading ? 'DELETING...' : 'YES, DELETE'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Custom Toast Notification */}
+        {toastVisible && (
+          <Animated.View
+            style={[
+              styles.toast,
+              {
+                opacity: toastOpacity,
+                transform: [{translateX: toastOffset}],
+              },
+              toastType === 'error' ? styles.errorToast : styles.successToast,
+            ]}>
+            <View style={styles.toastContent}>
+              <MaterialIcons
+                name={toastType === 'success' ? 'check-circle' : 'error'}
+                size={24}
+                color={toastType === 'success' ? '#22c55e' : '#ef4444'}
+              />
+              <Text style={styles.toastMessage}>{toastMessage}</Text>
+            </View>
+          </Animated.View>
+        )}
+        {orderItems.length > 0 && (
+          <View style={styles.bottomButtonContainer}>
+            <TouchableOpacity
+              style={styles.fullCancelButton}
+              onPress={() => showCancelConfirmation(order)}
+              disabled={isLoading}>
+              <MaterialIcons name="cancel" size={20} color="#fff" />
+              <Text style={styles.fullCancelButtonText}>
+                {isLoading ? 'Processing...' : 'Cancel Order'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </SafeAreaView>
+    </LayoutWrapper>
   );
 };
 
@@ -931,6 +1068,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    marginEnd: 160,
   },
   negativeQuantity: {
     color: '#dc2626',
@@ -1035,14 +1173,17 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     alignItems: 'center',
-    padding: 16,
-    paddingTop: 24,
+    padding: 12,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#111827',
-    marginTop: 8,
+    marginTop: 6,
   },
   modalBody: {
     padding: 16,
@@ -1051,26 +1192,30 @@ const styles = StyleSheet.create({
   modalMessage: {
     fontSize: 16,
     color: '#4B5563',
-    marginBottom: 12,
+    marginBottom: 16,
     textAlign: 'center',
+    fontWeight: '500',
   },
   selectedItemContainer: {
     backgroundColor: '#f8fafc',
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    padding: 16,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    alignItems: 'center',
   },
-  selectedItemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  selectedItemDetails: {
+  orderNumberContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedItemName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
+    marginLeft: 8,
   },
   selectedItemLot: {
     fontSize: 14,
@@ -1078,15 +1223,8 @@ const styles = StyleSheet.create({
     color: '#f97316',
     marginLeft: 6,
   },
-  modalWarning: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
   modalActions: {
     flexDirection: 'row',
-    marginTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
   },
@@ -1114,7 +1252,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
-    marginLeft: 8,
+    marginLeft: 5,
   },
   // Toast styles
   toast: {
@@ -1215,1059 +1353,188 @@ const styles = StyleSheet.create({
   successToast: {
     borderLeftColor: '#22c55e',
   },
+
+  quantityContainerNew: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 8,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    padding: 12,
+  },
+  quantityBox: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  quantityDividerNew: {
+    width: 1,
+    backgroundColor: '#d1d5db',
+    marginVertical: 4,
+  },
+  quantityLabelNew: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  quantityValueNew: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  selectedItemDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  selectedItemDetailsText: {
+    marginLeft: 4,
+    color: '#4b5563',
+  },
+  bottomButtonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingBottom: 16,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  fullCancelButton: {
+    marginTop: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dc2626',
+    paddingVertical: 14,
+    borderRadius: 8,
+    elevation: 2,
+  },
+  fullCancelButtonText: {
+    color: 'white',
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  cancelRemarkContainer: {
+    marginTop: 12,
+    marginBottom: 20,
+    width: '100%',
+  },
+  cancelRemarkLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4B5563',
+    marginBottom: 8,
+  },
+  cancelRemarkInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#111827',
+    backgroundColor: '#f9fafb',
+    textAlignVertical: 'top',
+    minHeight: 80,
+  },
+  compactOrderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignSelf: 'center',
+  },
+  compactOrderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginLeft: 3,
+  },
+  deleteIconButton: {
+    padding: 4,
+    borderRadius: 8,
+    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  loadingContainer: {
+    padding: 4,
+    borderRadius: 8,
+    backgroundColor: '#fee2e2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ef4444',
+  },
+  deleteModalContent: {
+    backgroundColor: '#4b5563', // Dark gray background
+    borderRadius: 8,
+    width: '90%',
+    maxWidth: 400,
+    padding: 20,
+    elevation: 5,
+  },
+  deleteModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  deleteModalTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#ffffff', // White text
+  },
+  deleteModalBody: {
+    marginBottom: 20,
+  },
+  deleteModalMessage: {
+    fontSize: 18,
+    color: '#ffffff', // White text
+    marginBottom: 12,
+  },
+  deleteItemName: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#ffffff', // White text
+    marginBottom: 20,
+  },
+  deleteModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  keepItemButton: {
+    flex: 1,
+    padding: 14,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  keepItemText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4ade80', // Green text
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    padding: 14,
+    alignItems: 'center',
+  },
+  confirmDeleteText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4ade80', // Green text for "YES, DELETE"
+  },
+  warningIcon: {
+    fontSize: 28,
+    marginRight: 8,
+  },
 });
 
 export default OrderDetailsScreen;
-
-// import React from 'react';
-// import {
-//   SafeAreaView,
-//   ScrollView,
-//   StyleSheet,
-//   Text,
-//   View,
-//   TouchableOpacity,
-//   Alert,
-//   Modal,
-//   Image,
-//   Animated,
-// } from 'react-native';
-// import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-// import {RouteProp} from '@react-navigation/native';
-// import axios from 'axios';
-// import {
-//   useNavigation,
-//   ParamListBase,
-//   NavigationProp,
-//   useFocusEffect,
-// } from '@react-navigation/native';
-
-// interface OrderItem {
-//   detailId?: number;
-//   itemId?: number;
-//   itemName: string;
-//   lotNo: string | number;
-//   itemMarks: string;
-//   vakalNo: string;
-//   requestedQty: number;
-//   availableQty: number;
-//   status: string;
-//   unitName?: string;
-//   netQuantity?: number;
-// }
-
-// interface Order {
-//   orderId: number;
-//   orderNo: string;
-//   orderDate: string;
-//   deliveryDate: string;
-//   status: string;
-//   transporterName: string;
-//   remarks: string;
-//   deliveryAddress: string;
-//   customerName: string;
-//   totalItems: number;
-//   totalQuantity: number;
-//   items: OrderItem[];
-// }
-
-// interface RouteParams {
-//   order: Order;
-// }
-
-// const OrderDetailsScreen = ({
-//   route,
-// }: {
-//   route: RouteProp<{params: RouteParams}, 'params'>;
-// }) => {
-//   const navigation = useNavigation<NavigationProp<ParamListBase>>();
-//   const {order} = route.params;
-
-//   // Initialize state with order items from the route params
-//   const [orderItems, setOrderItems] = React.useState<OrderItem[]>(
-//     order.items || [],
-//   );
-
-//   // Update orderItems when the order prop changes
-//   React.useEffect(() => {
-//     if (order && order.items) {
-//       setOrderItems(order.items);
-//     }
-//   }, [order]);
-//   const [modalVisible, setModalVisible] = React.useState(false);
-//   const [selectedItem, setSelectedItem] = React.useState<OrderItem | null>(
-//     null,
-//   );
-//   const [toastVisible, setToastVisible] = React.useState(false);
-//   const [isLoading, setIsLoading] = React.useState(false);
-//   const [toastMessage, setToastMessage] = React.useState(
-//     'Order cancelled successfully!',
-//   );
-//   const [toastType, setToastType] = React.useState<'success' | 'error'>(
-//     'success',
-//   );
-//   const toastOpacity = React.useRef(new Animated.Value(0)).current;
-//   const toastOffset = React.useRef(new Animated.Value(300)).current;
-
-//   // Format date for display
-//   const formatDate = (dateString: string) => {
-//     try {
-//       if (!dateString) return 'N/A';
-
-//       // For YYYY-MM-DD format with or without time component
-//       if (dateString.match(/^\d{4}-\d{2}-\d{2}/) || dateString.includes('T')) {
-//         // Extract date part only if there's a time component
-//         const datePart = dateString.split('T')[0];
-//         const [year, month, day] = datePart.split('-');
-
-//         // Add 1 to day to compensate for timezone shift
-//         let dayNum = parseInt(day, 10) + 1;
-//         let monthIndex = parseInt(month, 10) - 1;
-//         let yearNum = parseInt(year, 10);
-
-//         // Handle month/year rollover if day exceeds month length
-//         const daysInMonth = new Date(yearNum, monthIndex + 1, 0).getDate();
-//         if (dayNum > daysInMonth) {
-//           dayNum = 1;
-//           if (monthIndex === 11) {
-//             monthIndex = 0;
-//             yearNum++;
-//           } else {
-//             monthIndex++;
-//           }
-//         }
-
-//         // Convert month number to month name
-//         const monthNames = [
-//           'January',
-//           'February',
-//           'March',
-//           'April',
-//           'May',
-//           'June',
-//           'July',
-//           'August',
-//           'September',
-//           'October',
-//           'November',
-//           'December',
-//         ];
-
-//         // Format the date manually
-//         return `${monthNames[monthIndex]} ${dayNum}, ${yearNum}`;
-//       }
-
-//       // For other formats or already formatted strings
-//       return dateString;
-//     } catch (error) {
-//       console.error('Error formatting date:', error, dateString);
-//       return dateString; // Return original string on error
-//     }
-//   };
-
-//   const showCancelConfirmation = (item: OrderItem) => {
-//     setSelectedItem(item);
-//     setModalVisible(true);
-//   };
-
-//   const showToast = (
-//     message: string,
-//     type: 'success' | 'error' = 'success',
-//   ) => {
-//     setToastMessage(message);
-//     setToastType(type);
-//     setToastVisible(true);
-
-//     // Animate toast in
-//     Animated.parallel([
-//       Animated.timing(toastOpacity, {
-//         toValue: 1,
-//         duration: 400,
-//         useNativeDriver: true,
-//       }),
-//       Animated.timing(toastOffset, {
-//         toValue: 0,
-//         duration: 400,
-//         useNativeDriver: true,
-//       }),
-//     ]).start();
-
-//     // Hide toast after 2.5 seconds
-//     setTimeout(() => {
-//       Animated.parallel([
-//         Animated.timing(toastOpacity, {
-//           toValue: 0,
-//           duration: 350,
-//           useNativeDriver: true,
-//         }),
-//         Animated.timing(toastOffset, {
-//           toValue: 300,
-//           duration: 350,
-//           useNativeDriver: true,
-//         }),
-//       ]).start(() => {
-//         setToastVisible(false);
-//       });
-//     }, 2500);
-//   };
-
-//   const handleCancelOrder = async () => {
-//     if (!selectedItem || !selectedItem.detailId) {
-//       showToast('Cannot cancel order: Missing detail ID', 'error');
-//       setModalVisible(false);
-//       return;
-//     }
-
-//     setIsLoading(true);
-
-//     try {
-//       // Simulate a successful cancellation without API call
-//       // Remove the cancelled item from the order items list
-//       if (selectedItem && selectedItem.detailId) {
-//         // Filter out the cancelled item
-//         setOrderItems(
-//           orderItems.filter(item => item.detailId !== selectedItem.detailId),
-//         );
-//       }
-
-//       showToast('Order cancelled successfully!', 'success');
-//     } catch (error: any) {
-//       console.error('Error cancelling order:', error);
-//       showToast('Error cancelling order', 'error');
-//     } finally {
-//       setIsLoading(false);
-//       setModalVisible(false);
-//     }
-//   };
-
-//   // Handle going back to previous screen
-//   const handleGoBack = () => {
-//     // Simply go back to the previous screen without passing parameters
-//     navigation.goBack();
-//   };
-
-//   return (
-//     <SafeAreaView style={styles.container}>
-//       <View style={styles.header}>
-//         <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-//           <MaterialIcons name="arrow-back" size={24} color="#0284C7" />
-//         </TouchableOpacity>
-//         <Text style={styles.headerTitle}>Order Details</Text>
-//         {order.status === 'NEW' && (
-//           <TouchableOpacity
-//             style={styles.editButton}
-//             onPress={() => {
-//               navigation.navigate('EditOrderScreen', {order: order});
-//             }}>
-//             <MaterialIcons name="edit" size={24} color="#0284c7" />
-//           </TouchableOpacity>
-//         )}
-//       </View>
-
-//       <ScrollView style={styles.scrollView}>
-//         <View style={styles.purpleHeaderCard}>
-//           <View style={styles.purpleHeader}>
-//             <View style={styles.headerContent}>
-//               <MaterialIcons name="shopping-bag" size={24} color="#ffffff" />
-//               <Text style={styles.purpleHeaderText}>
-//                 Order #{order.orderNo}
-//               </Text>
-//             </View>
-//           </View>
-
-//           <View style={styles.whiteCardContent}>
-//             <View style={styles.infoRow}>
-//               <View style={styles.infoItem}>
-//                 <View style={styles.infoIcon}>
-//                   <MaterialIcons name="event" size={16} color="#0284C7" />
-//                 </View>
-//                 <View>
-//                   <Text style={styles.infoLabelNew}>Order Date</Text>
-//                   <Text style={styles.infoValueNew}>
-//                     {formatDate(order.orderDate)}
-//                   </Text>
-//                 </View>
-//               </View>
-
-//               <View style={styles.infoItem}>
-//                 <View style={styles.infoIcon}>
-//                   <MaterialIcons
-//                     name="local-shipping"
-//                     size={16}
-//                     color="#0284C7"
-//                   />
-//                 </View>
-//                 <View>
-//                   <Text style={styles.infoLabelNew}>Delivery Date</Text>
-//                   <Text style={styles.infoValueNew}>
-//                     {formatDate(order.deliveryDate)}
-//                   </Text>
-//                 </View>
-//               </View>
-//             </View>
-
-//             <View style={styles.dividerHorizontal} />
-
-//             <View style={styles.infoRow}>
-//               <View style={styles.infoItem}>
-//                 <View style={styles.infoIcon}>
-//                   <MaterialIcons
-//                     name="directions-bus"
-//                     size={16}
-//                     color="#0284C7"
-//                   />
-//                 </View>
-//                 <View style={{flex: 1}}>
-//                   <Text style={styles.infoLabelNew}>Transporter</Text>
-//                   <Text
-//                     style={[styles.infoValueNew, styles.transporterText]}
-//                     numberOfLines={3}>
-//                     {order.transporterName || 'Qqq'}
-//                   </Text>
-//                 </View>
-//               </View>
-//             </View>
-
-//             <View style={styles.dividerHorizontal} />
-
-//             <View style={styles.infoRow}>
-//               <View style={styles.infoItem}>
-//                 <View style={styles.infoIcon}>
-//                   <MaterialIcons name="location-on" size={16} color="#0284C7" />
-//                 </View>
-//                 <View>
-//                   <Text style={styles.infoLabelNew}>Delivery Location</Text>
-//                   <View style={styles.locationBox}>
-//                     <Text style={styles.locationText}>
-//                       {order.deliveryAddress || 'N/A'}
-//                     </Text>
-//                   </View>
-//                 </View>
-//               </View>
-//             </View>
-//           </View>
-//         </View>
-
-//         {orderItems && orderItems.length > 0 ? (
-//           orderItems.map((item: OrderItem, index: number) => (
-//             <View
-//               key={`item-${item.detailId || index}`}
-//               style={styles.itemCard}>
-//               <View style={styles.itemHeader}>
-//                 <View style={styles.itemNameContainer}>
-//                   <MaterialIcons name="inventory" size={18} color="#0284C7" />
-//                   <Text style={styles.itemName}>{item.itemName}</Text>
-//                 </View>
-//                 <View style={styles.statusBadge}>
-//                   <MaterialIcons
-//                     name="check-circle"
-//                     size={14}
-//                     color="#0284c7"
-//                   />
-//                   <Text style={styles.statusText}>{item.status}</Text>
-//                 </View>
-//               </View>
-
-//               <View style={styles.lotNoContainer}>
-//                 <MaterialIcons name="label" size={16} color="#f97316" />
-//                 <Text style={styles.lotNo}>Lot No: {item.lotNo || 'N/A'}</Text>
-//               </View>
-
-//               <View style={styles.itemDetailsGrid}>
-//                 <View style={styles.itemDetail}>
-//                   <MaterialIcons name="bookmark" size={14} color="#6B7280" />
-//                   <Text style={styles.detailLabel}>Item Marks:</Text>
-//                   <Text style={styles.detailValue}>
-//                     {item.itemMarks || 'N/A'}
-//                   </Text>
-//                 </View>
-//               </View>
-//               <View style={styles.itemDetail}>
-//                 <MaterialIcons name="description" size={14} color="#6B7280" />
-//                 <Text style={styles.detailLabel}>Vakal No:</Text>
-//                 <Text style={styles.detailValue}>{item.vakalNo || 'N/A'}</Text>
-//               </View>
-
-//               <View style={styles.quantityContainer}>
-//                 <View style={styles.quantityColumn}>
-//                   <View style={styles.quantityLabelRow}>
-//                     <MaterialIcons
-//                       name="shopping-cart"
-//                       size={18}
-//                       color="#0369a1"
-//                     />
-//                     <Text style={styles.quantityLabel}>Ordered</Text>
-//                   </View>
-//                   <Text style={styles.quantityValue}>{item.requestedQty}</Text>
-//                 </View>
-//                 <View style={styles.quantityDivider} />
-//                 <View style={styles.quantityColumn}>
-//                   <View style={styles.quantityLabelRow}>
-//                     <MaterialIcons name="inventory" size={18} color="#0369a1" />
-//                     <Text style={styles.quantityLabel}>Available</Text>
-//                   </View>
-//                   <Text style={styles.quantityValue}>{item.availableQty}</Text>
-//                 </View>
-//               </View>
-
-//               <View style={styles.itemDetailsGrid}>
-//                 <View style={styles.itemDetail}>
-//                   <MaterialIcons name="straighten" size={14} color="#6B7280" />
-//                   <Text style={styles.detailLabel}>Unit:</Text>
-//                   <Text style={styles.detailValue}>
-//                     {item.unitName || 'N/A'}
-//                   </Text>
-//                 </View>
-//                 <View style={styles.itemDetail}>
-//                   <MaterialIcons name="scale" size={14} color="#6B7280" />
-//                   <Text style={styles.detailLabel}>Net Qty:</Text>
-//                   <View
-//                     style={[
-//                       styles.netQtyContainer,
-//                       item.availableQty - item.requestedQty < 0
-//                         ? styles.negativeQtyContainer
-//                         : item.availableQty - item.requestedQty > 0
-//                         ? styles.positiveQtyContainer
-//                         : null,
-//                     ]}>
-//                     <Text
-//                       style={[
-//                         styles.detailValue,
-//                         item.availableQty - item.requestedQty < 0
-//                           ? styles.negativeQuantity
-//                           : item.availableQty - item.requestedQty > 0
-//                           ? styles.positiveQuantity
-//                           : null,
-//                       ]}>
-//                       {item.availableQty - item.requestedQty > 0 ? '+' : ''}
-//                       {item.availableQty - item.requestedQty}
-//                     </Text>
-//                   </View>
-//                 </View>
-//               </View>
-
-//               <TouchableOpacity
-//                 style={styles.cancelButton}
-//                 onPress={() => showCancelConfirmation(item)}
-//                 disabled={isLoading}>
-//                 <MaterialIcons name="cancel" size={16} color="#fff" />
-//                 <Text style={styles.cancelButtonText}>
-//                   {isLoading ? 'Processing...' : 'Cancel Order'}
-//                 </Text>
-//               </TouchableOpacity>
-//             </View>
-//           ))
-//         ) : (
-//           <View style={styles.noItemsContainer}>
-//             <MaterialIcons name="info" size={48} color="#9ca3af" />
-//             <Text style={styles.noItemsText}>
-//               All order items have been cancelled
-//             </Text>
-//             <TouchableOpacity
-//               style={styles.backToOrdersButton}
-//               onPress={() => navigation.goBack()}>
-//               <MaterialIcons name="arrow-back" size={16} color="#fff" />
-//               <Text style={styles.backToOrdersText}>Back to Orders</Text>
-//             </TouchableOpacity>
-//           </View>
-//         )}
-//       </ScrollView>
-
-//       {/* Custom Cancel Alert Modal */}
-//       <Modal
-//         animationType="fade"
-//         transparent={true}
-//         visible={modalVisible}
-//         onRequestClose={() => setModalVisible(false)}>
-//         <View style={styles.modalOverlay}>
-//           <View style={styles.modalContent}>
-//             <View style={styles.modalHeader}>
-//               <MaterialIcons name="error-outline" size={40} color="#ef4444" />
-//               <Text style={styles.modalTitle}>Cancel Order</Text>
-//             </View>
-
-//             <View style={styles.modalBody}>
-//               <Text style={styles.modalMessage}>
-//                 Are you sure you want to cancel order for:
-//               </Text>
-
-//               {selectedItem && (
-//                 <View style={styles.selectedItemContainer}>
-//                   <Text style={styles.selectedItemName}>
-//                     {selectedItem?.itemName}
-//                   </Text>
-//                   <View style={styles.selectedItemDetails}>
-//                     <MaterialIcons name="label" size={16} color="#f97316" />
-//                     <Text style={styles.selectedItemLot}>
-//                       Lot No: {selectedItem?.lotNo || 'N/A'}
-//                     </Text>
-//                   </View>
-//                 </View>
-//               )}
-
-//               <Text style={styles.modalWarning}>
-//                 This action cannot be undone.
-//               </Text>
-//             </View>
-
-//             <View style={styles.modalActions}>
-//               <TouchableOpacity
-//                 style={styles.modalCancelButton}
-//                 onPress={() => setModalVisible(false)}>
-//                 <Text style={styles.modalCancelText}>Keep Order</Text>
-//               </TouchableOpacity>
-
-//               <TouchableOpacity
-//                 style={styles.modalConfirmButton}
-//                 onPress={handleCancelOrder}>
-//                 <MaterialIcons name="delete" size={16} color="#fff" />
-//                 <Text style={styles.modalConfirmText}>Yes, Cancel</Text>
-//               </TouchableOpacity>
-//             </View>
-//           </View>
-//         </View>
-//       </Modal>
-
-//       {/* Custom Toast Notification */}
-//       {toastVisible && (
-//         <Animated.View
-//           style={[
-//             styles.toast,
-//             {
-//               opacity: toastOpacity,
-//               transform: [{translateX: toastOffset}],
-//             },
-//             toastType === 'error' ? styles.errorToast : styles.successToast,
-//           ]}>
-//           <View style={styles.toastContent}>
-//             <MaterialIcons
-//               name={toastType === 'success' ? 'check-circle' : 'error'}
-//               size={24}
-//               color={toastType === 'success' ? '#22c55e' : '#ef4444'}
-//             />
-//             <Text style={styles.toastMessage}>{toastMessage}</Text>
-//           </View>
-//         </Animated.View>
-//       )}
-//     </SafeAreaView>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: '# f9fafb',
-//   },
-//   header: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'space-between',
-//     paddingHorizontal: 16,
-//     paddingVertical: 10,
-//     backgroundColor: '#fff',
-//     borderBottomWidth: 1,
-//     borderBottomColor: '#e5e7eb',
-//     elevation: 2,
-//   },
-//   editButton: {
-//     padding: 8,
-//   },
-//   backButton: {
-//     padding: 8,
-//   },
-//   headerTitle: {
-//     fontSize: 18,
-//     fontWeight: '600',
-//     color: '#0284C7',
-//   },
-//   placeholder: {
-//     width: 40,
-//   },
-//   scrollView: {
-//     flex: 1,
-//   },
-//   purpleHeaderCard: {
-//     backgroundColor: '#0284C7',
-//     borderRadius: 0,
-//     marginVertical: 10,
-//     marginHorizontal: 0,
-//     overflow: 'hidden',
-//     elevation: 3,
-//     shadowColor: '#000',
-//     shadowOffset: {width: 0, height: 2},
-//     shadowOpacity: 0.1,
-//     shadowRadius: 3,
-//     marginBottom: 10,
-//   },
-//   purpleHeader: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     paddingVertical: 15,
-//     paddingHorizontal: 15,
-//   },
-//   headerContent: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-//   purpleHeaderText: {
-//     fontSize: 18,
-//     fontWeight: '700',
-//     color: '#ffffff',
-//     marginLeft: 11,
-//     letterSpacing: 0.5,
-//     textShadowColor: 'rgba(0, 0, 0, 0.2)',
-//     textShadowOffset: {width: 0, height: 1},
-//     textShadowRadius: 2,
-//   },
-//   whiteCardContent: {
-//     backgroundColor: '#ffffff',
-//     borderTopLeftRadius: 1,
-//     borderTopRightRadius: 1,
-//     padding: 14,
-//     paddingHorizontal: 16,
-//   },
-//   infoRow: {
-//     flexDirection: 'row',
-//     marginBottom: 0,
-//   },
-//   infoItem: {
-//     flexDirection: 'row',
-//     alignItems: 'flex-start',
-//     flex: 1,
-//   },
-//   infoIcon: {
-//     padding: 8,
-//     borderRadius: 8,
-//     marginRight: 10,
-//   },
-//   infoLabelNew: {
-//     fontSize: 12,
-//     color: 'grey',
-//     fontWeight: '500',
-//     marginBottom: 3,
-//   },
-//   infoValueNew: {
-//     fontSize: 13,
-//     fontWeight: '600',
-//     color: '#111827',
-//   },
-//   transporterText: {
-//     flexWrap: 'wrap',
-//     lineHeight: 18,
-//   },
-//   dividerHorizontal: {
-//     height: 1,
-//     backgroundColor: '#f0f0f0',
-//     marginVertical: 12,
-//   },
-//   locationBox: {
-//     padding: 8,
-//     backgroundColor: '#f9fafb',
-//     borderRadius: 8,
-//     borderWidth: 1,
-//     borderColor: '#e5e7eb',
-//     marginTop: 4,
-//   },
-//   locationText: {
-//     fontSize: 14,
-//     fontWeight: '500',
-//     color: '#111827',
-//   },
-//   orderStatus: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'space-between',
-//   },
-//   statusDot: {
-//     width: 8,
-//     height: 8,
-//     borderRadius: 4,
-//     backgroundColor: '#22c55e',
-//     marginRight: 6,
-//   },
-//   orderStatusText: {
-//     fontSize: 14,
-//     fontWeight: '500',
-//     color: '#111827',
-//     flex: 1,
-//   },
-//   trackOrderLink: {
-//     fontSize: 14,
-//     fontWeight: '600',
-//     color: '#7c3aed',
-//   },
-//   itemCard: {
-//     backgroundColor: '#ffffff',
-//     borderRadius: 12,
-//     marginHorizontal: 12,
-//     marginBottom: 12,
-//     padding: 14,
-//     elevation: 3,
-//     shadowColor: '#000',
-//     shadowOffset: {width: 0, height: 2},
-//     shadowOpacity: 0.1,
-//     shadowRadius: 3,
-//     borderWidth: 1,
-//     borderColor: '#f0f0f0',
-//   },
-//   itemHeader: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//     alignItems: 'center',
-//     marginBottom: 12,
-//     paddingBottom: 8,
-//     borderBottomWidth: 1,
-//     borderBottomColor: '#f0f0f0',
-//   },
-//   itemNameContainer: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     flex: 1,
-//   },
-//   itemName: {
-//     fontSize: 16,
-//     fontWeight: '700',
-//     color: '#111827',
-//     marginLeft: 6,
-//   },
-//   statusBadge: {
-//     // backgroundColor: '#e0f2fe',
-//     paddingHorizontal: 10,
-//     paddingVertical: 3,
-//     borderRadius: 20,
-//     // borderWidth: 1,
-//     // borderColor: '#bae6fd',
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//   },
-//   statusText: {
-//     fontSize: 12,
-//     fontWeight: '600',
-//     color: '#0284c7',
-//     marginLeft: 4,
-//   },
-//   lotNoContainer: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     marginBottom: 12,
-//   },
-//   lotNo: {
-//     fontSize: 14,
-//     fontWeight: '500',
-//     color: '#f97316',
-//     marginLeft: 6,
-//   },
-//   itemDetailsGrid: {
-//     flexDirection: 'row',
-//     marginVertical: 6,
-//   },
-//   itemDetail: {
-//     flex: 1,
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//   },
-//   detailLabel: {
-//     fontSize: 13,
-//     color: '#6B7280',
-//     marginLeft: 4,
-//     marginRight: 4,
-//     fontWeight: '500',
-//   },
-//   detailValue: {
-//     fontSize: 13,
-//     fontWeight: '600',
-//     color: '#111827',
-//   },
-//   positiveQuantity: {
-//     color: '#059669',
-//     fontWeight: '700',
-//     fontSize: 14,
-//   },
-//   negativeQuantity: {
-//     color: '#dc2626',
-//     fontWeight: '700',
-//     fontSize: 14,
-//   },
-//   quantityContainer: {
-//     flexDirection: 'row',
-//     backgroundColor: '#f0f7ff',
-//     borderRadius: 8,
-//     padding: 10,
-//     marginVertical: 10,
-//     borderWidth: 1,
-//     borderColor: '#dbeafe',
-//     alignItems: 'center',
-//   },
-//   quantityDivider: {
-//     height: '80%',
-//     width: 1,
-//     backgroundColor: '#bae6fd',
-//   },
-//   quantityColumn: {
-//     flex: 1,
-//     alignItems: 'center',
-//   },
-//   quantityLabelRow: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//   },
-//   quantityLabel: {
-//     fontSize: 12,
-//     color: '#6B7280',
-//     marginLeft: 4,
-//     fontWeight: '500',
-//   },
-//   quantityValue: {
-//     fontSize: 18,
-//     fontWeight: '700',
-//     color: '#0369a1',
-//     marginTop: 4,
-//   },
-//   netQtyContainer: {
-//     paddingHorizontal: 8,
-//     paddingVertical: 2,
-//     borderRadius: 4,
-//     marginLeft: 4,
-//     borderWidth: 1,
-//   },
-//   positiveQtyContainer: {
-//     backgroundColor: '#d1fae5',
-//     borderColor: '#a7f3d0',
-//   },
-//   negativeQtyContainer: {
-//     backgroundColor: '#fee2e2',
-//     borderColor: '#fecaca',
-//   },
-//   cancelButton: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     backgroundColor: '#ef4444',
-//     borderRadius: 8,
-//     paddingVertical: 10,
-//     paddingHorizontal: 16,
-//     marginTop: 12,
-//     elevation: 2,
-//     shadowColor: '#000',
-//     shadowOffset: {width: 0, height: 1},
-//     shadowOpacity: 0.2,
-//     shadowRadius: 2,
-//   },
-//   cancelButtonText: {
-//     color: '#ffffff',
-//     fontWeight: '600',
-//     fontSize: 14,
-//     marginLeft: 8,
-//   },
-
-//   // Modal styles
-//   modalOverlay: {
-//     flex: 1,
-//     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     padding: 20,
-//   },
-//   modalContent: {
-//     backgroundColor: 'white',
-//     borderRadius: 16,
-//     width: '90%',
-//     maxWidth: 400,
-//     padding: 0,
-//     overflow: 'hidden',
-//     shadowColor: '#000',
-//     shadowOffset: {
-//       width: 0,
-//       height: 2,
-//     },
-//     shadowOpacity: 0.25,
-//     shadowRadius: 4,
-//     elevation: 5,
-//   },
-//   modalHeader: {
-//     alignItems: 'center',
-//     padding: 16,
-//     paddingTop: 24,
-//   },
-//   modalTitle: {
-//     fontSize: 20,
-//     fontWeight: '700',
-//     color: '#111827',
-//     marginTop: 8,
-//   },
-//   modalBody: {
-//     padding: 16,
-//     paddingTop: 0,
-//   },
-//   modalMessage: {
-//     fontSize: 16,
-//     color: '#4B5563',
-//     marginBottom: 12,
-//     textAlign: 'center',
-//   },
-//   selectedItemContainer: {
-//     backgroundColor: '#f8fafc',
-//     borderRadius: 8,
-//     padding: 12,
-//     marginBottom: 16,
-//     borderWidth: 1,
-//     borderColor: '#e2e8f0',
-//   },
-//   selectedItemName: {
-//     fontSize: 16,
-//     fontWeight: '600',
-//     color: '#111827',
-//     marginBottom: 8,
-//   },
-//   selectedItemDetails: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//   },
-//   selectedItemLot: {
-//     fontSize: 14,
-//     fontWeight: '500',
-//     color: '#f97316',
-//     marginLeft: 6,
-//   },
-//   modalWarning: {
-//     fontSize: 14,
-//     color: '#9CA3AF',
-//     fontStyle: 'italic',
-//     textAlign: 'center',
-//   },
-//   modalActions: {
-//     flexDirection: 'row',
-//     marginTop: 8,
-//     borderTopWidth: 1,
-//     borderTopColor: '#e5e7eb',
-//   },
-//   modalCancelButton: {
-//     flex: 1,
-//     padding: 14,
-//     alignItems: 'center',
-//     borderRightWidth: 0.5,
-//     borderRightColor: '#e5e7eb',
-//   },
-//   modalCancelText: {
-//     fontSize: 16,
-//     fontWeight: '600',
-//     color: '#6B7280',
-//   },
-//   modalConfirmButton: {
-//     flex: 1,
-//     padding: 14,
-//     backgroundColor: '#ef4444',
-//     alignItems: 'center',
-//     flexDirection: 'row',
-//     justifyContent: 'center',
-//   },
-//   modalConfirmText: {
-//     fontSize: 16,
-//     fontWeight: '600',
-//     color: 'white',
-//     marginLeft: 8,
-//   },
-//   // Toast styles
-//   toast: {
-//     position: 'absolute',
-//     top: 82,
-//     right: 5,
-//     width: '74%',
-//     maxWidth: 310,
-//     backgroundColor: '#ffffff',
-//     borderRadius: 12,
-//     paddingVertical: 10,
-//     paddingHorizontal: 14,
-//     shadowColor: '#000',
-//     shadowOffset: {
-//       width: -2,
-//       height: 2,
-//     },
-//     shadowOpacity: 0.18,
-//     shadowRadius: 4.65,
-//     elevation: 7,
-//     zIndex: 1000,
-//     borderLeftWidth: 4,
-//     borderLeftColor: '#22c55e',
-//   },
-//   toastContent: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//   },
-//   toastMessage: {
-//     fontSize: 15,
-//     fontWeight: '600',
-//     color: '#111827',
-//     marginLeft: 10,
-//   },
-//   noItemsContainer: {
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     backgroundColor: '#ffffff',
-//     borderRadius: 12,
-//     marginHorizontal: 12,
-//     marginVertical: 24,
-//     padding: 24,
-//     elevation: 3,
-//     shadowColor: '#000',
-//     shadowOffset: {width: 0, height: 2},
-//     shadowOpacity: 0.1,
-//     shadowRadius: 3,
-//   },
-//   noItemsText: {
-//     fontSize: 16,
-//     fontWeight: '600',
-//     color: '#6b7280',
-//     marginTop: 16,
-//     marginBottom: 24,
-//     textAlign: 'center',
-//   },
-//   backToOrdersButton: {
-//     backgroundColor: '#7c3aed',
-//     paddingVertical: 12,
-//     paddingHorizontal: 16,
-//     borderRadius: 8,
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     elevation: 2,
-//     shadowColor: '#000',
-//     shadowOffset: {width: 0, height: 1},
-//     shadowOpacity: 0.2,
-//     shadowRadius: 2,
-//   },
-//   backToOrdersText: {
-//     fontSize: 14,
-//     fontWeight: '600',
-//     color: '#ffffff',
-//     marginLeft: 8,
-//   },
-//   cancelledBadge: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     backgroundColor: '#fef2f2',
-//     borderRadius: 8,
-//     borderWidth: 1,
-//     borderColor: '#fee2e2',
-//     paddingVertical: 10,
-//     paddingHorizontal: 16,
-//     marginTop: 12,
-//   },
-//   cancelledText: {
-//     color: '#ef4444',
-//     fontWeight: '600',
-//     fontSize: 14,
-//     marginLeft: 8,
-//   },
-//   errorToast: {
-//     borderLeftColor: '#ef4444',
-//   },
-//   successToast: {
-//     borderLeftColor: '#22c55e',
-//   },
-// });
-
-// export default OrderDetailsScreen;

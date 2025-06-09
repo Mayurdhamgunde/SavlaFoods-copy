@@ -21,7 +21,8 @@ import {
   useFocusEffect,
 } from '@react-navigation/native';
 import {NavigationProp} from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {getSecureItem, setSecureItem} from '../utils/secureStorage';
+import {getSecureOrAsyncItem} from '../utils/migrationHelper';
 import axios from 'axios';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {MainStackParamList, RootStackParamList} from '../type/type';
@@ -181,9 +182,9 @@ const HomeScreen: React.FC = () => {
 
   const fetchCustomerID = useCallback(async () => {
     try {
-      const storedId = await AsyncStorage.getItem('customerID');
+      const storedId = await getSecureOrAsyncItem('customerID');
       // Also get the stored display name
-      const storedDisplayName = await AsyncStorage.getItem('displayName');
+      const storedDisplayName = await getSecureOrAsyncItem('displayName');
 
       if (storedDisplayName) {
         setDisplayName(storedDisplayName);
@@ -196,13 +197,13 @@ const HomeScreen: React.FC = () => {
         const response = await axios.get(API_ENDPOINTS.GET_CUSTOMER_ID);
         const newId = response.data.customerID;
         if (newId) {
-          await AsyncStorage.setItem('customerID', newId);
+          await setSecureItem('customerID', newId);
           setCustomerID(newId);
           fetchCategories(newId);
 
           // If there's a display name in the response, save and set it
           if (response.data.displayName) {
-            await AsyncStorage.setItem(
+            await setSecureItem(
               'displayName',
               response.data.displayName,
             );
@@ -218,14 +219,14 @@ const HomeScreen: React.FC = () => {
 
   const fetchDisplayName = useCallback(async () => {
     try {
-      let name = await AsyncStorage.getItem('Disp_name');
+      let name = await getSecureOrAsyncItem('Disp_name');
       if (name) {
         setDisplayName(name);
       } else {
         const response = await axios.get(API_ENDPOINTS.GET_CUSTOMER_INFO);
         name = response.data.Disp_name;
         setDisplayName(name);
-        await AsyncStorage.setItem('Disp_name', name || '');
+        await setSecureItem('Disp_name', name || '');
       }
     } catch (error) {
       console.error('Error fetching Display Name:', error);
@@ -420,54 +421,50 @@ const HomeScreen: React.FC = () => {
           ]}>
           <View style={styles.stockHeader}>
             <View style={styles.lotNoContainer}>
-              <Text style={styles.lotNoLabel}>LOT NO : </Text>
+              <Text style={styles.lotNoLabel}>LOT NO:</Text>
 
               <TouchableOpacity
                 style={styles.lotNoValueContainer}
-                // onPress={() => {
-                //   if (CustomerID) {
-                //     navigation.navigate('LotReportScreen' as any, {
-                //       lotNo: item.LOT_NO,
-                //       itemId: item.ITEM_ID,
-                //       customerID: CustomerID,
-                //     });
-                //   } else {
-                //     Alert.alert('Error', 'Customer ID not available');
-                //   }
-                // }}
-              >
+                onPress={() => {
+                  if (CustomerID) {
+                    navigation.navigate('LotReportScreen' as any, {
+                      lotNo: item.LOT_NO,
+                      itemId: item.ITEM_ID,
+                      customerID: CustomerID,
+                    });
+                  } else {
+                    Alert.alert('Error', 'Customer ID not available');
+                  }
+                }}>
                 <Text style={styles.lotNoValue}>{item.LOT_NO || 'N/A'}</Text>
               </TouchableOpacity>
             </View>
 
-            <Animated.View
-              style={[
-                styles.addToCartContainer,
-                {
-                  transform: [
+                            <Animated.View
+                  style={[
+                    styles.addToCartContainer,
                     {
-                      scale:
-                        cartAnimations[item.LOT_NO]?.interpolate({
-                          inputRange: [0, 0.5, 1],
-                          outputRange: [1, 1.2, 1],
-                        }) || 1,
+                      transform: [
+                        {
+                          scale:
+                            cartAnimations[item.LOT_NO]?.interpolate({
+                              inputRange: [0, 0.5, 1],
+                              outputRange: [1, 1.2, 1],
+                            }) || 1,
+                        },
+                      ],
                     },
-                  ],
-                },
-              ]}>
-              <TouchableOpacity
-                style={styles.addToCartButton}
-                onPress={() => handleAddToCart(item)}>
-                <View style={styles.cartIconWrapper}>
-                  {/* <Text style={styles.cartIcon}>🛒</Text> */}
-                  <Image
-                    source={require('../assets/images/cart.png')}
-                    style={{width: 32, height: 32, alignSelf: 'center'}}
-                    resizeMode="contain"
-                  />
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
+                  ]}>
+                  <TouchableOpacity
+                    style={styles.addToCartButton}
+                    onPress={() => handleAddToCart(item)}>
+                    <Image
+                      source={require('../assets/images/cart.png')}
+                      style={{width: 32, height: 32, alignSelf: 'center'}}
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                </Animated.View>
           </View>
 
           <View style={styles.itemNameContainer}>
@@ -554,7 +551,7 @@ const HomeScreen: React.FC = () => {
         }
         // Use stored CustomerID as fallback
         else {
-          id = await AsyncStorage.getItem('customerID');
+          id = await getSecureOrAsyncItem('customerID');
         }
 
         if (id) {
@@ -640,7 +637,7 @@ const HomeScreen: React.FC = () => {
           onPress={handleSearchSubmit}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search lot nos, item marks, vakal no.."
+            placeholder="Search lot no, item marks, vakal no.."
             placeholderTextColor={'#999'}
             value={searchQuery}
             onChangeText={handleSearch}
@@ -929,22 +926,11 @@ const styles = StyleSheet.create({
   addToCartButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    // backgroundColor: '#FFFDD0',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRadius: 25,
+    paddingHorizontal: 5,
+    paddingVertical: 5,
     elevation: 3,
-    shadowColor: '#000',
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  cartIconWrapper: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-  },
-  cartIcon: {
-    fontSize: 20,
   },
   highlightedCard: {
     borderWidth: 2,

@@ -1,6 +1,7 @@
 // src/config/api.config
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {getSecureItem} from '../utils/secureStorage';
+import {getSecureOrAsyncItem} from '../utils/migrationHelper';
 
 const YOUR_COMPUTER_IP = '202.189.234.140';
 // const YOUR_COMPUTER_IP = '192.168.1.37';
@@ -31,6 +32,7 @@ export const API_ENDPOINTS = {
   GET_PENDING_ORDERS: `${API_BASE_URL}/order/getPendingOrders`,
   UPDATE_PENDING_ORDER: `${API_BASE_URL}/order/updatePendingOrder`,
   GET_CANCEL_ORDER: `${API_BASE_URL}/order/cancelOrder`,
+  DELETE_ORDER: `${API_BASE_URL}/order/deleteOrder`,
 
   //Inward/OutwardReport
   GET_INWARD_REPORT: `${API_BASE_URL}/reports/getInwardData`,
@@ -47,6 +49,15 @@ export const API_ENDPOINTS = {
 
   //LotReport
   GET_LOT_REPORT: `${API_BASE_URL}/lots/getLotReport`,
+
+  //GRNdetails
+  GET_GRN_DETAILS: `${API_BASE_URL}/reports/GRNdetails`,
+
+  //DCdetails
+  GET_DC_DETAILS: `${API_BASE_URL}/lots/deliveryChallanDetails`,
+
+  //ZeroStockReport
+  GET_ZERO_STOCK_REPORT: `${API_BASE_URL}/zerostock/getZeroStock`,
 };
 
 export const BASE_IMAGE_PATH = `${API_BASE_URL}/assets/images`;
@@ -63,9 +74,8 @@ export const DEFAULT_HEADERS = {
 
 // Add this new function
 export const getAuthHeaders = async () => {
-  // Get token from storage - this depends on how you're storing auth tokens
-  // You may be using AsyncStorage, SecureStore, or a state management solution
-  const token = await AsyncStorage.getItem('userToken');
+  // Get token from secure storage
+  const token = await getSecureOrAsyncItem('userToken');
 
   return {
     ...DEFAULT_HEADERS,

@@ -1,5 +1,4 @@
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import React, {useEffect, useState} from 'react';
@@ -19,6 +18,8 @@ import {RootStackParamList} from '../type/type';
 import {useDisplayName} from '../contexts/DisplayNameContext';
 import {API_ENDPOINTS} from '../config/api.config';
 import apiClient from '../utils/apiClient';
+import { getSecureItem, setSecureItem, removeSecureItem } from '../utils/secureStorage';
+import { getSecureOrAsyncItem, migrateKey } from '../utils/migrationHelper';
 
 interface ProfileMenuProps {
   displayName: string | null;
@@ -169,9 +170,9 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       setError(null);
       setDebugInfo(null);
 
-      const groupId = await AsyncStorage.getItem('FK_CUST_GROUP_ID');
-      const storedCustomerId = await AsyncStorage.getItem('customerID');
-      const currentToken = await AsyncStorage.getItem('userToken');
+      const groupId = await getSecureOrAsyncItem('FK_CUST_GROUP_ID');
+      const storedCustomerId = await getSecureOrAsyncItem('customerID');
+      const currentToken = await getSecureOrAsyncItem('userToken');
 
       setCustomerId(storedCustomerId);
       console.log('Stored FK_CUST_GROUP_ID:', groupId);
@@ -313,12 +314,14 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.multiRemove([
-        'userToken',
-        'Disp_name',
-        'FK_CUST_GROUP_ID',
-        'customerID',
+      // Remove items from secure storage
+      await Promise.all([
+        removeSecureItem('userToken'),
+        removeSecureItem('Disp_name'),
+        removeSecureItem('FK_CUST_GROUP_ID'),
+        removeSecureItem('customerID'),
       ]);
+      
       setShowMenu(false);
       setShowLogoutConfirm(false);
       navigation.reset({
@@ -326,7 +329,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         routes: [{name: 'OtpVerificationScreen'}],
       });
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Error during logout:', error);
       Alert.alert('Error', 'Failed to logout. Please try again.');
     }
   };
@@ -356,7 +359,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       console.log('Account value:', selectedAccount.value);
 
       // Get the group ID
-      const groupId = await AsyncStorage.getItem('FK_CUST_GROUP_ID');
+      const groupId = await getSecureOrAsyncItem('FK_CUST_GROUP_ID');
       if (!groupId) {
         throw new Error('No customer group ID found');
       }
@@ -366,7 +369,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         console.log('Using token directly from account data');
 
         // Get the current token for comparison
-        const oldToken = await AsyncStorage.getItem('userToken');
+        const oldToken = await getSecureOrAsyncItem('userToken');
         console.log('Old token:', formatTokenForLogging(oldToken));
         console.log('New token:', formatTokenForLogging(selectedAccount.token));
 
@@ -401,20 +404,20 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
         // Store the new account information including the token
         await Promise.all([
-          AsyncStorage.setItem(
+          setSecureItem(
             'customerID',
             selectedAccount.customerId.toString(),
           ),
-          AsyncStorage.setItem('Disp_name', selectedAccount.label),
-          AsyncStorage.setItem(
+          setSecureItem('Disp_name', selectedAccount.label),
+          setSecureItem(
             'FK_CUST_GROUP_ID',
             selectedAccount.groupId.toString(),
           ),
-          AsyncStorage.setItem('userToken', selectedAccount.token),
+          setSecureItem('userToken', selectedAccount.token),
         ]);
 
         // Verify token was stored
-        const verifyToken = await AsyncStorage.getItem('userToken');
+        const verifyToken = await getSecureItem('userToken');
         console.log(
           'Verified stored token:',
           formatTokenForLogging(verifyToken),
@@ -482,20 +485,20 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
       // Store the new account information
       await Promise.all([
-        AsyncStorage.setItem(
+        setSecureItem(
           'customerID',
           currentAccount.CustomerID.toString(),
         ),
-        AsyncStorage.setItem('Disp_name', currentAccount.DisplayName),
-        AsyncStorage.setItem(
+        setSecureItem('Disp_name', currentAccount.DisplayName),
+        setSecureItem(
           'FK_CUST_GROUP_ID',
           currentAccount.CustomerGroupID.toString(),
         ),
-        AsyncStorage.setItem('userToken', currentAccount.token), // Store the new token
+        setSecureItem('userToken', currentAccount.token), // Store the new token
       ]);
 
       // Verify token was stored
-      const verifyToken = await AsyncStorage.getItem('userToken');
+      const verifyToken = await getSecureItem('userToken');
       console.log('Verified stored token:', formatTokenForLogging(verifyToken));
 
       // Call the onAccountSwitch callback if provided
@@ -830,7 +833,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   logoutConfirmButton: {
-    backgroundColor: '#dc3545',
+    backgroundColor: 'red',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -846,6 +849,3 @@ const styles = StyleSheet.create({
 });
 
 export default ProfileMenu;
-
-
-

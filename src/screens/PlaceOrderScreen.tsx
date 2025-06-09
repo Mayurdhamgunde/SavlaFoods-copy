@@ -32,7 +32,6 @@ interface DetailRowProps {
 }
 
 interface OrderItem {
-  // Added missing fields from backend
   ITEM_ID: number;
   ITEM_NAME: string;
   LOT_NO: string;
@@ -286,6 +285,7 @@ const PlaceOrderScreen: React.FC<PlaceOrderScreenProps> = ({
         stockLotLocationId: route.params.stockLotLocationId,
         unitId: route.params.unitId || 3,
         finYearId: route.params.finYearId || 15,
+        unitName: '',
       });
     } catch (error: any) {
       const errorMessage =
@@ -543,7 +543,7 @@ const PlaceOrderScreen: React.FC<PlaceOrderScreenProps> = ({
                     <Ionicons
                       name="arrow-forward"
                       size={20}
-                      style={{color: '#FFFFFF'}}
+                      style={{color: '#FFFFFF', alignItems: 'center'}}
                     />
                   </>
                 )}
@@ -707,6 +707,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     marginRight: 8,
+    marginBottom: 3,
   },
   loadingContainer: {
     flexDirection: 'row',

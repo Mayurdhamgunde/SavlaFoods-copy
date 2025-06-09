@@ -1,5 +1,5 @@
-// // src/types/types.ts
 // import type {StackScreenProps} from '@react-navigation/stack';
+// // import { OrderContext } from '../contexts/orderContext';
 
 // export interface Item {
 //   ITEM_ID: number;
@@ -50,6 +50,11 @@
 //     customerID?: string;
 //     displayName?: string;
 //   };
+//   LotReportScreen: {
+//     lotNo?: string;
+//     itemId?: string;
+//     customerID?: string;
+//   };
 // };
 
 // export type MainStackParamList = {
@@ -69,6 +74,7 @@
 //     orderId: number;
 //     orderNo: string;
 //     transporterName: string;
+//     remarks: String;
 //     orderDate: string;
 //     deliveryDate: string;
 //     deliveryAddress: string;
@@ -81,13 +87,34 @@
 //       AVAILABLE_QTY: number;
 //       ITEM_MARKS: string;
 //       VAKAL_NO: string;
+//       UNIT_NAME: string;
 //     }>;
+//   };
+//   GrnDetailsScreen: {
+//     customerID: string;
+//     grnId: number;
+//     grnNo: string;
+//     grnDate: string;
+//     items: Array<{
+//       ITEM_ID: number;
+//       LOT_NO: string;
+//       QUANTITY: number;
+//       ITEM_MARKS?: string;
+//       VAKAL_NO?: string;
+//       UNIT_NAME: string;
+//     }>;
+//   };
+//   OutwardDetailsScreen: {
+//     customerId: string;
+//     outwardNo: string;
+//     item?: any;
 //   };
 //   OrderHistoryScreen: {
 //     customerID: string;
 //     orderId: number;
 //     orderNo: string;
 //     transporterName: string;
+//     remarks: string;
 //     deliveryDate: string;
 //     deliveryAddress: string;
 //     orderDate: string;
@@ -109,9 +136,10 @@
 //     orderId: number;
 //     orderNo: string;
 //     transporterName: string;
+//     remarks: string;
 //     deliveryDate: string;
-//     deliveryAddress: string;
 //     orderDate: string;
+//     isOrderUpdated?: boolean;
 //     items: Array<{
 //       ITEM_ID: number;
 //       LOT_NO: string;
@@ -119,16 +147,15 @@
 //       AVAILABLE_QTY: number;
 //       ITEM_MARKS: string;
 //       VAKAL_NO: string;
+//       UNIT_NAME: string;
 //     }>;
 //   };
-
 //   EditOrderScreen: {
 //     customerID: string;
 //     orderId: number;
 //     orderNo: string;
 //     transporterName: string;
 //     deliveryDate: string;
-//     deliveryAddress: string;
 //     orderDate: string;
 //     items: Array<{
 //       ITEM_ID: number;
@@ -139,7 +166,6 @@
 //       VAKAL_NO: string;
 //     }>;
 //   };
-
 //   QuantitySelectorModal: {
 //     item: {
 //       item_id: number;
@@ -190,12 +216,14 @@
 //       AVAILABLE_QTY: number;
 //       NET_QUANTITY: number;
 //       ORDERED_QUANTITY: number;
+//       BatchNo?: string | null;
 //     }>;
 //     customerID: string;
-//     userSupervisorId?: number;
-//     userMukadamId?: number;
-//     stockLotLocationId?: number;
+//     userSupervisorId: string;
 //     CUST_DELIVERY_ADD?: string;
+//     deliveryAddress?: string;
+//     userMukadamId: string;
+//     stockLotLocationId: string;
 //     unitId?: number;
 //     finYearId?: number;
 //   };
@@ -224,6 +252,7 @@
 //       items: Array<any>;
 //     };
 //   };
+
 //   ItemDetailsExpanded: {
 //     ItemID: number;
 //     itemName: string;
@@ -239,9 +268,14 @@
 //       ORDERED_QUANTITY: number;
 //     }[];
 //     forceRefresh?: number;
+//     LotReportScreen: {
+//       lotNo?: string;
+//       itemId?: string;
+//       customerID?: string;
+//     };
 //   };
 //   CartScreen: undefined;
-//   LotReportScreen: undefined;
+//   LotReportScreen: {lotNo?: string; itemId?: string; customerID?: string};
 // };
 
 // export type MainStackScreenProps<T extends keyof MainStackParamList> =
@@ -259,6 +293,7 @@
 //   searchType: SearchType;
 //   searchQuery: string;
 // }
+
 
 import type {StackScreenProps} from '@react-navigation/stack';
 // import { OrderContext } from '../contexts/orderContext';
@@ -312,6 +347,11 @@ export type RootStackParamList = {
     customerID?: string;
     displayName?: string;
   };
+  LotReportScreen: {
+    lotNo?: string;
+    itemId?: string;
+    customerID?: string;
+  };
 };
 
 export type MainStackParamList = {
@@ -331,9 +371,11 @@ export type MainStackParamList = {
     orderId: number;
     orderNo: string;
     transporterName: string;
+    remarks: String;
     orderDate: string;
     deliveryDate: string;
     deliveryAddress: string;
+    orderBy: string;
     refreshData?: boolean;
     updatedOrder?: any;
     items: Array<{
@@ -343,13 +385,34 @@ export type MainStackParamList = {
       AVAILABLE_QTY: number;
       ITEM_MARKS: string;
       VAKAL_NO: string;
+      UNIT_NAME: string;
     }>;
+  };
+  GrnDetailsScreen: {
+    customerID: string;
+    grnId: number;
+    grnNo: string;
+    grnDate: string;
+    items: Array<{
+      ITEM_ID: number;
+      LOT_NO: string;
+      QUANTITY: number;
+      ITEM_MARKS?: string;
+      VAKAL_NO?: string;
+      UNIT_NAME: string;
+    }>;
+  };
+  OutwardDetailsScreen: {
+    customerId: string;
+    outwardNo: string;
+    item?: any;
   };
   OrderHistoryScreen: {
     customerID: string;
     orderId: number;
     orderNo: string;
     transporterName: string;
+    remarks: string;
     deliveryDate: string;
     deliveryAddress: string;
     orderDate: string;
@@ -371,6 +434,7 @@ export type MainStackParamList = {
     orderId: number;
     orderNo: string;
     transporterName: string;
+    remarks: string;
     deliveryDate: string;
     orderDate: string;
     isOrderUpdated?: boolean;
@@ -381,6 +445,7 @@ export type MainStackParamList = {
       AVAILABLE_QTY: number;
       ITEM_MARKS: string;
       VAKAL_NO: string;
+      UNIT_NAME: string;
     }>;
   };
   EditOrderScreen: {
@@ -433,6 +498,7 @@ export type MainStackParamList = {
     userMukadamId?: number;
     stockLotLocationId?: number;
     deliveryAddress?: string;
+    orderBy?: string;
     unitId?: number;
     finYearId?: number;
     shouldRefresh: boolean;
@@ -455,6 +521,7 @@ export type MainStackParamList = {
     userSupervisorId: string;
     CUST_DELIVERY_ADD?: string;
     deliveryAddress?: string;
+    orderBy?: string;
     userMukadamId: string;
     stockLotLocationId: string;
     unitId?: number;
@@ -485,6 +552,7 @@ export type MainStackParamList = {
       items: Array<any>;
     };
   };
+
   ItemDetailsExpanded: {
     ItemID: number;
     itemName: string;
@@ -500,9 +568,14 @@ export type MainStackParamList = {
       ORDERED_QUANTITY: number;
     }[];
     forceRefresh?: number;
+    LotReportScreen: {
+      lotNo?: string;
+      itemId?: string;
+      customerID?: string;
+    };
   };
   CartScreen: undefined;
-  LotReportScreen: undefined;
+  LotReportScreen: {lotNo?: string; itemId?: string; customerID?: string};
 };
 
 export type MainStackScreenProps<T extends keyof MainStackParamList> =

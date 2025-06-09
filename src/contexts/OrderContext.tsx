@@ -1,6 +1,6 @@
 // OrderContext.tsx
 import React, {createContext, useState, useEffect} from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {getSecureItem, setSecureItem, removeSecureItem} from '../utils/secureStorage';
 
 interface OrderDetail {
   ID: number;
@@ -74,7 +74,7 @@ export const OrderProvider: React.FC<{children: React.ReactNode}> = ({
 
   const loadOrderHistory = async () => {
     try {
-      const savedHistory = await AsyncStorage.getItem('orderHistory');
+      const savedHistory = await getSecureItem('orderHistory');
       if (savedHistory) {
         setOrderHistory(JSON.parse(savedHistory));
       }
@@ -109,7 +109,7 @@ export const OrderProvider: React.FC<{children: React.ReactNode}> = ({
         updatedHistory.push(updatedOrder);
       }
 
-      await AsyncStorage.setItem(
+      await setSecureItem(
         'orderHistory',
         JSON.stringify(updatedHistory),
       );
@@ -125,7 +125,7 @@ export const OrderProvider: React.FC<{children: React.ReactNode}> = ({
   const addOrder = async (order: OrderData) => {
     try {
       const updatedHistory = [...orderHistory, order];
-      await AsyncStorage.setItem(
+      await setSecureItem(
         'orderHistory',
         JSON.stringify(updatedHistory),
       );
@@ -137,7 +137,7 @@ export const OrderProvider: React.FC<{children: React.ReactNode}> = ({
 
   const clearHistory = async () => {
     try {
-      await AsyncStorage.removeItem('orderHistory');
+      await removeSecureItem('orderHistory');
       setOrderHistory([]);
     } catch (error) {
       console.error('Error clearing history:', error);

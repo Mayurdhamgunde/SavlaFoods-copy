@@ -1,7 +1,7 @@
 import axios, {AxiosRequestConfig, AxiosResponse} from 'axios';
 import NetInfo from '@react-native-community/netinfo';
 import {API_BASE_URL, DEFAULT_HEADERS} from '../config/api.config';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSecureItem } from './secureStorage';
 
 // Helper function to format token for better visibility
 const formatTokenForLogging = (token: string | null) => {
@@ -30,7 +30,7 @@ apiClient.interceptors.request.use(
     }
 
     // Add auth token to headers if it exists
-    const token = await AsyncStorage.getItem('userToken');
+    const token = await getSecureItem('userToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
       // Log the token and URL for debugging

@@ -81,7 +81,12 @@ type MainStackParamList = {
       expiryDate?: string;
     }>;
   };
-  LotReportScreen: undefined;
+  LotReportScreen: {
+    lotNo: string;
+    customerID: string | number;
+    itemID?: number;
+    itemName?: string;
+  };
 };
 
 type ItemDetailsExpandedRouteProp = RouteProp<
@@ -130,6 +135,21 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
   const [highlightedLotNoIndex, setHighlightedLotNoIndex] = useState<
     number | null
   >(null);
+
+  // Function to navigate to LotReportScreen with the selected lot number
+  const handleLotNoPress = (lotNo: string | null) => {
+    if (!lotNo) {
+      Alert.alert('Error', 'Invalid Lot Number');
+      return;
+    }
+
+    navigation.navigate('LotReportScreen', {
+      lotNo: lotNo,
+      customerID: customerID,
+      itemID: itemDetails?.ITEM_ID,
+      itemName: itemDetails?.ITEM_NAME,
+    });
+  };
 
   const handleAddToCart = (lotNo: string | null) => {
     if (!lotNo) {
@@ -374,11 +394,10 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
               onLayout={() => fadeIn(index)}>
               <View style={styles.stockHeader}>
                 <View style={styles.lotNoContainer}>
-                  <Text style={styles.lotNoLabel}>LOT NO : </Text>
+                  <Text style={styles.lotNoLabel}>LOT NO:</Text>
                   <TouchableOpacity
                     style={styles.lotNoValueContainer}
-                    // onPress={() => navigation.navigate('LotReportScreen')}
-                  >
+                    onPress={() => handleLotNoPress(stock.LOT_NO)}>
                     <Text
                       style={[
                         styles.lotNoValue,
@@ -407,10 +426,6 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
                   <TouchableOpacity
                     style={styles.addToCartButton}
                     onPress={() => handleAddToCart(stock.LOT_NO)}>
-                    {/* <View style={styles.cartIconWrapper}>
-                      <Text style={styles.cartIcon}>🛒</Text>
-                    </View> */}
-
                     <Image
                       source={require('../assets/images/cart.png')}
                       style={{width: 32, height: 32, alignSelf: 'center'}}
@@ -498,7 +513,7 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
               <Text style={[styles.tableHeaderCell, {width: 120}]}>
                 Batch No
               </Text>
-              <Text style={[styles.tableHeaderCell, {width: 100}]}>
+              <Text style={[styles.tableHeaderCell, {width: 150}]}>
                 Available Qty
               </Text>
               <Text style={[styles.tableHeaderCell, {width: 100}]}>
@@ -522,14 +537,17 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
                       isHighlighted && styles.highlightedTableRow,
                     ]}>
                     <View style={[styles.tableCellContainer, {width: 120}]}>
-                      <Text
-                        style={[
-                          styles.tableCell,
-                          styles.lotNoTableCell,
-                          isHighlighted && styles.highlightedText,
-                        ]}>
-                        {stock.LOT_NO || 'N/A'}
-                      </Text>
+                      <TouchableOpacity
+                        onPress={() => handleLotNoPress(stock.LOT_NO)}>
+                        <Text
+                          style={[
+                            styles.tableCell,
+                            styles.lotNoTableCell,
+                            isHighlighted && styles.highlightedText,
+                          ]}>
+                          {stock.LOT_NO || 'N/A'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                     <View style={[styles.tableCellContainer, {width: 100}]}>
                       <Text style={styles.tableCell}>
@@ -551,7 +569,7 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
                         {stock.BATCH_NO || 'N/A'}
                       </Text>
                     </View>
-                    <View style={[styles.tableCellContainer, {width: 100}]}>
+                    <View style={[styles.tableCellContainer, {width: 150}]}>
                       <Text style={styles.tableCell}>
                         {formatQuantity(stock.AVAILABLE_QTY)}
                       </Text>
@@ -570,7 +588,6 @@ const ItemDetailsExpanded: React.FC<ItemDetailsExpandedProps> = ({
                           style={{width: 32, height: 32, alignSelf: 'center'}}
                           resizeMode="contain"
                         />
-                        {/* <Text style={styles.tableCartIcon}>🛒</Text> */}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -865,6 +882,7 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: '#4285f4',
     paddingHorizontal: 10,
+    height: 50,
   },
   tableRow: {
     flexDirection: 'row',

@@ -20,6 +20,12 @@ interface UsePdfGenerationProps {
   isInward: boolean;
 }
 
+interface ReportFilters {
+  unit: string;
+  itemCategories: string[];
+  itemSubcategories: string[];
+}
+
 export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -62,14 +68,12 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
     fromDate: Date,
     toDate: Date,
     customerName: string,
-    filters: any,
+    filters: ReportFilters,
   ) => {
     try {
       setPdfGenerating(true);
       setDownloadProgress(0);
-
-      // Create notification for download progress
-      updateProgressUI(20, 'Preparing your report PDF...');
+      setStatusMessage('Initializing PDF generation...');
 
       // Sanitize all reportData values to remove problematic Unicode characters
       const sanitizedReportData = reportData.map(item => {
@@ -86,19 +90,13 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
       // Also sanitize the customer name and other text inputs
       const safeCustName = sanitizeStringForPdf(customerName);
       const safeUnit = filters.unit ? sanitizeStringForPdf(filters.unit) : '';
-      const safeItemCategory = filters.itemCategory
-        ? sanitizeStringForPdf(filters.itemCategory)
-        : '';
-      const safeItemSubcategory = filters.itemSubcategory
-        ? sanitizeStringForPdf(filters.itemSubcategory)
-        : '';
 
       // Log current state to help with debugging
       console.log('===== PDF DOWNLOAD STARTED =====');
       console.log('Current mode:', isInward ? 'INWARD' : 'OUTWARD');
       console.log('Report data count:', sanitizedReportData.length);
 
-      // Format dates for filename - avoid any slashes or special characters
+      // Format dates for filename
       const formatDateForFilename = (date: Date) => {
         return `${date.getDate().toString().padStart(2, '0')}-${(
           date.getMonth() + 1
@@ -107,10 +105,27 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
           .padStart(2, '0')}-${date.getFullYear()}`;
       };
 
-      const safeFromDate = formatDateForFilename(fromDate);
-      const safeToDate = formatDateForFilename(toDate);
-      const reportTitle = isInward ? 'Inward_Report' : 'Outward_Report';
-      const fileName = `${reportTitle}_${safeFromDate}_to_${safeToDate}.pdf`;
+      const fromDateFormatted = formatDateForFilename(fromDate);
+      const toDateFormatted = formatDateForFilename(toDate);
+
+      // Format filters for filename
+      const unitText = filters.unit ? `-${filters.unit}` : '';
+
+      // Generate a filename with proper filter info
+      const pdfFilename = `${
+        isInward ? 'Inward' : 'Outward'
+      }_Report_${customerName.replace(
+        /\s+/g,
+        '_',
+      )}_${fromDateFormatted}_to_${toDateFormatted}${unitText}.pdf`.replace(
+        /[&\/\\#,+()$~%.'":*?<>{}]/g,
+        '_',
+      );
+
+      // Ensure filename ends with .pdf
+      const finalFilename = pdfFilename.endsWith('.pdf')
+        ? pdfFilename
+        : `${pdfFilename}.pdf`;
 
       // Create appropriate directory paths for different platforms
       let dirPath: string;
@@ -119,13 +134,8 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
       if (Platform.OS === 'ios') {
         // For iOS, use the Documents directory which is accessible to the user
         dirPath = RNFS.DocumentDirectoryPath; // Use RNFS instead of RNBlobUtil for consistency
-        publicFilePath = `${dirPath}/${fileName}`;
-
-        // After saving the file, we need to make it accessible
-        const success = await RNBlobUtil.ios.openDocument(publicFilePath);
-        if (!success) {
-          console.log('Could not open the document, but it was saved');
-        }
+        publicFilePath = `${dirPath}/${finalFilename}`;
+        // We'll open the document AFTER writing it, not here
       } else {
         // For Android, use the public Download directory
         // Request storage permissions if needed
@@ -135,7 +145,7 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
             'Storage permission denied, using app-specific directory as fallback',
           );
           dirPath = RNBlobUtil.fs.dirs.DownloadDir; // App-specific when permissions denied
-          publicFilePath = `${dirPath}/${fileName}`;
+          publicFilePath = `${dirPath}/${finalFilename}`;
 
           Alert.alert(
             'Limited Storage Access',
@@ -164,7 +174,7 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
             }
           }
 
-          publicFilePath = `${dirPath}/${fileName}`;
+          publicFilePath = `${dirPath}/${finalFilename}`;
         }
       }
 
@@ -191,7 +201,7 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
       // Calculate available space and rows per page
       const headerHeight = 160;
       const continuedPageHeaderHeight = 40;
-      const footerHeight = 30;
+      const footerHeight = 50; // Increased footer height to prevent overlap
       const availableHeight =
         pageHeight - margin * 2 - headerHeight - footerHeight;
       const availableHeightContinuedPage =
@@ -212,19 +222,19 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
 
       // Define table columns with widths
       const tableColumns = [
-        {title: '#', width: 25},
-        {title: 'Unit', width: 40},
-        {title: isInward ? 'Inward Date' : 'Outward Date', width: 70},
-        {title: isInward ? 'Inward No' : 'Outward No', width: 60},
-        {title: 'Customer', width: 80},
-        {title: 'Vehicle', width: 60},
-        {title: 'Lot No', width: 45},
-        {title: 'Item Name', width: 90},
+        {title: 'SR.No', width: 48},
+        {title: 'Unit', width: 51},
+        {title: isInward ? 'Inward Date' : 'Outward Date', width: 75},
+        {title: isInward ? 'Inward No' : 'Outward No', width: 65},
+        // {title: 'Customer', width: 80},
+        {title: 'Lot No', width: 60},
+        {title: 'Item Name', width: 96},
+        {title: 'Vakkal No', width: 68},
+        {title: 'Item Mark', width: 72},
+        {title: 'Qty', width: 50},  // Increased width to create more space
         {title: 'Remark', width: 50},
-        {title: 'Item', width: 50},
-        {title: 'Vakkal', width: 40},
-        {title: 'Qty', width: 35},
-        {title: 'Delivered', width: 55},
+        {title: 'Vehicle No', width: 68},
+        ...(isInward ? [] : [{title: 'Delivered To', width: 65}]),
       ];
 
       // Calculate table width
@@ -258,24 +268,54 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
             StandardFonts.TimesRomanBold,
           );
 
-          page.drawText(isInward ? 'Inward Report' : 'Outward Report', {
+          // First line: Customer Name
+          page.drawText(`Customer: ${safeCustName}`, {
             x: margin,
             y: yPosition - 20,
-            size: 18,
+            size: 16,
             font: boldFont,
             color: rgb(0, 0, 0),
           });
 
-          page.drawText('Savla Foods & Cold Storage Pvt Ltd', {
+          yPosition -= 30;
+
+          // Second line: Company name with Unit
+          let companyText = 'Savla Foods';
+          
+          // Draw company name
+          page.drawText(companyText, {
             x: margin,
-            y: yPosition - 45,
-            size: 12,
+            y: yPosition - 20,
+            size: 14,
+            font: boldFont,
             color: rgb(0.2, 0.2, 0.2),
           });
+          
+          // Draw Unit separately with more spacing and less boldness
+          if (safeUnit) {
+            const regularFont = await pdfDoc.embedStandardFont(StandardFonts.TimesRoman);
+            page.drawText(`Unit - ${safeUnit}`, {
+              x: margin + boldFont.widthOfTextAtSize(companyText, 14) + 15, // Add 15 points of extra space
+              y: yPosition - 20,
+              size: 14,
+              font: regularFont, // Use regular font instead of bold
+              color: rgb(0.2, 0.2, 0.2),
+            });
+          }
 
-          yPosition -= 65;
+          yPosition -= 30;
 
-          // Add report metadata (dates, filters, etc.)
+          // Third line: Report type
+          page.drawText(isInward ? 'Inward Report' : 'Outward Report', {
+            x: margin,
+            y: yPosition - 20,
+            size: 12,
+            color: rgb(0.4, 0.4, 0.4),
+          });
+
+          yPosition -= 30;
+
+          // Fourth line: Date range
           const formatDate = (date: Date) => {
             return `${date.getDate().toString().padStart(2, '0')}/${(
               date.getMonth() + 1
@@ -288,40 +328,13 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
             `From: ${formatDate(fromDate)} To: ${formatDate(toDate)}`,
             {
               x: margin,
-              y: yPosition,
-              size: 10,
-              color: rgb(0.2, 0.2, 0.2),
+              y: yPosition - 15,
+              size: 11,
+              color: rgb(0.3, 0.3, 0.3),
             },
           );
 
-          yPosition -= 20;
-
-          // Draw filters text
-          let filtersText = ` Customer: ${safeCustName}`;
-          if (safeUnit) filtersText += `, Unit: ${safeUnit}`;
-          if (safeItemCategory)
-            filtersText += `, Category: ${safeItemCategory}`;
-          if (safeItemSubcategory)
-            filtersText += `, Subcategory: ${safeItemSubcategory}`;
-
-          page.drawText(filtersText, {
-            x: margin,
-            y: yPosition,
-            size: 8,
-            color: rgb(0.3, 0.3, 0.3),
-          });
-
-          yPosition -= 20;
-
-          // Draw record count
-          page.drawText(`Records found: ${sanitizedReportData.length}`, {
-            x: margin,
-            y: yPosition,
-            size: 10,
-            color: rgb(0.2, 0.2, 0.2),
-          });
-
-          yPosition -= 20;
+          yPosition -= 35;
         } else {
           // For continued pages, just add a small header
           const boldFont = await pdfDoc.embedStandardFont(
@@ -500,15 +513,15 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
           // Remaining columns (columns 4-13)
           const remainingColumns = [
             isInward ? item.GRN_NO || '-' : item.OUTWARD_NO || '-',
-            item.CUSTOMER_NAME || '-',
-            item.VEHICLE_NO || '-',
+            // item.CUSTOMER_NAME || '-',
             item.LOT_NO || '-',
             item.ITEM_NAME || '-',
-            item.REMARK || item.REMARKS || '-',
-            item.ITEM_MARKS || '-',
             item.VAKAL_NO || '-',
+            item.ITEM_MARKS || '-',
             isInward ? item.QUANTITY || '-' : item.DC_QTY || '-',
-            item.DELIVERED_TO || '-',
+            item.REMARK || item.REMARKS || '-',
+            item.VEHICLE_NO || '-',
+            ...(isInward ? [] : [item.DELIVERED_TO || '-']),
           ];
 
           for (let c = 0; c < remainingColumns.length; c++) {
@@ -549,22 +562,50 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
             return total + (isNaN(qty) ? 0 : qty);
           }, 0);
 
-          // Draw total text
-          drawWrappedText(
-            page,
-            `Total Quantity: ${totalQty.toFixed(2)}`,
-            margin + 10,
-            totalRowY - rowHeight / 2,
-            tableWidth - 20,
-            headerSize,
-            {font: boldFont},
-          );
+          // Calculate positions for the total row
+          let itemMarkPosition = margin;
+          let qtyPosition = margin;
+          
+          // Get position of Item Mark column (column 7)
+          for (let i = 0; i < 7; i++) {
+            itemMarkPosition += tableColumns[i].width;
+          }
+          
+          // Get position of Qty column (column 8)
+          for (let i = 0; i < 8; i++) {
+            qtyPosition += tableColumns[i].width;
+          }
+          
+          // Draw "Total Quantity:" label directly without wrapping
+          const totalText = "Total Quantity";
+          const textWidth = boldFont.widthOfTextAtSize(totalText, headerSize);
+          
+          // Calculate the Item Mark column's center position
+          const itemMarkCenter = itemMarkPosition + tableColumns[7].width / 2;
+          
+          // Position label more to the left side
+          page.drawText(totalText, {
+            x: itemMarkCenter - textWidth / 2 - 15,  // Moved 15 points to the left
+            y: totalRowY - rowHeight / 2,
+            size: headerSize,
+            font: boldFont,
+          });
+          
+          // Draw the quantity value aligned with the Qty column above, but moved left
+          page.drawText(`${Math.round(totalQty)}`, {
+            x: qtyPosition + tableColumns[8].width / 2 - boldFont.widthOfTextAtSize(`${Math.round(totalQty)}`, headerSize) / 2 - 15, // Moved 15 points left to match label
+            y: totalRowY - rowHeight / 2,
+            size: headerSize,
+            font: boldFont,
+          });
         }
 
-        // Add footer with page number
+        // Add footer with page number and generation timestamp with better positioning
+        const footerY = margin + 25; // Moved footer higher to avoid overlap
+        
         page.drawText(`Page ${pageNumber + 1} of ${totalPages}`, {
           x: pageWidth - margin - 100,
-          y: margin + 10,
+          y: footerY,
           size: 8,
           color: rgb(0.5, 0.5, 0.5),
         });
@@ -573,7 +614,7 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
         const safeTimestamp = sanitizeStringForPdf(new Date().toLocaleString());
         page.drawText(`Generated: ${safeTimestamp}`, {
           x: margin,
-          y: margin + 10,
+          y: footerY,
           size: 8,
           color: rgb(0.5, 0.5, 0.5),
         });
@@ -606,10 +647,22 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
         }
 
         // Get unique filename to avoid conflicts
-        publicFilePath = await getUniqueFileName(dirPath, fileName);
+        publicFilePath = await getUniqueFileName(dirPath, finalFilename);
 
         // Write the file
         await RNBlobUtil.fs.writeFile(publicFilePath, base64Pdf, 'base64');
+
+        // For iOS, try to open the document AFTER it's been written
+        if (Platform.OS === 'ios') {
+          try {
+            await RNBlobUtil.ios.openDocument(publicFilePath);
+          } catch (iosError) {
+            console.log(
+              'Could not open the document automatically, but it was saved:',
+              iosError,
+            );
+          }
+        }
 
         // Make file visible in media gallery (Android)
         if (Platform.OS === 'android') {
@@ -632,7 +685,7 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
         updateProgressUI(100, 'Download complete!');
 
         // Show notification
-        showDownloadNotification(publicFilePath, fileName, isInward);
+        showDownloadNotification(publicFilePath, finalFilename, isInward);
 
         // Show success alert
         const isPublicStorage = !publicFilePath.includes('Android/data');
@@ -644,7 +697,27 @@ export const usePdfGeneration = ({isInward}: UsePdfGenerationProps) => {
           [
             {
               text: 'View PDF',
-              onPress: () => openPdf(publicFilePath),
+              onPress: () => {
+                try {
+                  // Make sure the path format is correct for the platform
+                  const formattedPath =
+                    Platform.OS === 'android' &&
+                    !publicFilePath.startsWith('file://')
+                      ? `file://${publicFilePath}`
+                      : publicFilePath;
+
+                  // Open the PDF with a slight delay to ensure it's fully written
+                  setTimeout(() => {
+                    openPdf(formattedPath);
+                  }, 300);
+                } catch (viewError) {
+                  console.error('Error opening PDF:', viewError);
+                  Alert.alert(
+                    'Error',
+                    'Could not open the PDF file. The file was saved successfully, but there was an error opening it.',
+                  );
+                }
+              },
             },
             {
               text: 'OK',

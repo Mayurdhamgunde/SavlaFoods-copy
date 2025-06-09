@@ -1,6 +1,7 @@
 import {useState, useEffect} from 'react';
 import {Alert, Platform} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {getSecureItem} from '../utils/secureStorage';
+import {getSecureOrAsyncItem} from '../utils/migrationHelper';
 import axios from 'axios';
 import {API_ENDPOINTS, DEFAULT_HEADERS} from '../config/api.config';
 import apiClient from '../utils/apiClient';
@@ -32,8 +33,8 @@ interface SubcategoriesMap {
 export interface ReportFilters {
   fromDate: Date;
   toDate: Date;
-  itemCategory: string;
-  itemSubcategory: string;
+  itemCategories: string[];
+  itemSubcategories: string[];
   unit: string;
 }
 
@@ -83,9 +84,9 @@ export const useReportData = ({isInward}: UseReportDataProps) => {
     try {
       setLoading(true);
 
-      // Get customer ID from AsyncStorage
-      const customerID = await AsyncStorage.getItem('customerID');
-      const displayName = await AsyncStorage.getItem('displayName');
+      // Get customer ID from secure storage
+      const customerID = await getSecureOrAsyncItem('customerID');
+      const displayName = await getSecureOrAsyncItem('displayName');
 
       if (!customerID) {
         Alert.alert('Error', 'Customer ID not found. Please login again.');
@@ -185,15 +186,15 @@ export const useReportData = ({isInward}: UseReportDataProps) => {
     }
   };
 
-  // Fetch customer name from AsyncStorage
+  // Fetch customer name from secure storage
   const fetchCustomerName = async () => {
     try {
-      const storedCustomerName = await AsyncStorage.getItem('CUSTOMER_NAME');
+      const storedCustomerName = await getSecureOrAsyncItem('CUSTOMER_NAME');
       if (storedCustomerName) {
         setCustomerName(storedCustomerName);
       } else {
-        // Fallback if CUSTOMER_NAME is not in AsyncStorage
-        const displayName = await AsyncStorage.getItem('displayName');
+        // Fallback if CUSTOMER_NAME is not in secure storage
+        const displayName = await getSecureOrAsyncItem('displayName');
         if (displayName) {
           setCustomerName(displayName);
         } else {
@@ -253,17 +254,19 @@ export const useReportData = ({isInward}: UseReportDataProps) => {
       setIsReportLoading(true);
       setIsSearching(true);
 
-      // Build request data with optional fields as null when not selected
+      // Build request data with arrays for categories and subcategories
       const requestData = {
         fromDate: formatDateForApi(filters.fromDate),
         toDate: formatDateForApi(filters.toDate),
         customerName: customerName, // Use customer name from state
-        itemCategoryName: filters.itemCategory
-          ? filters.itemCategory.trim()
-          : null,
-        itemSubCategoryName: filters.itemSubcategory
-          ? filters.itemSubcategory.trim()
-          : null,
+        itemCategoryName:
+          filters.itemCategories.length > 0
+            ? filters.itemCategories.map(cat => cat.trim())
+            : null,
+        itemSubCategoryName:
+          filters.itemSubcategories.length > 0
+            ? filters.itemSubcategories.map(subcat => subcat.trim())
+            : null,
         unitName: filters.unit ? filters.unit.trim() : null,
       };
 
@@ -307,12 +310,16 @@ export const useReportData = ({isInward}: UseReportDataProps) => {
           const unitMatch =
             requestData.unitName === null ||
             item.UNIT_NAME === requestData.unitName;
+
+          // Check if item's category is in the selected categories array
           const categoryMatch =
             requestData.itemCategoryName === null ||
-            item.ITEM_CATEG_NAME === requestData.itemCategoryName;
+            requestData.itemCategoryName.includes(item.ITEM_CATEG_NAME);
+
+          // Check if item's subcategory is in the selected subcategories array
           const subcategoryMatch =
             requestData.itemSubCategoryName === null ||
-            item.SUB_CATEGORY_NAME === requestData.itemSubCategoryName;
+            requestData.itemSubCategoryName.includes(item.SUB_CATEGORY_NAME);
 
           return (
             customerMatch && unitMatch && categoryMatch && subcategoryMatch

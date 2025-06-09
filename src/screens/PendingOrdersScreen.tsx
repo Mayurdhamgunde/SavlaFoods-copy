@@ -10,13 +10,18 @@ import {
   View,
   SafeAreaView,
 } from 'react-native';
-import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import {
+  useNavigation,
+  useFocusEffect,
+  useRoute,
+} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import axios from 'axios';
 import {API_ENDPOINTS} from '../config/api.config';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {useCustomer} from '../contexts/DisplayNameContext'; // Import the customer context
 import {MainStackParamList} from '../../src/type/type'; // Import the typed parameter list
+import {LayoutWrapper} from '../components/AppLayout';
 
 interface PendingOrder {
   orderId: number;
@@ -30,6 +35,7 @@ interface PendingOrder {
   customerName: string;
   totalItems: number;
   totalQuantity: number;
+  unitName: string;
   items: Array<{
     detailId: number;
     itemId: number;
@@ -40,6 +46,7 @@ interface PendingOrder {
     requestedQty: number;
     availableQty: number;
     status: string;
+    unitName: string;
   }>;
 }
 
@@ -59,6 +66,7 @@ interface PendingOrderResponse {
 
 const PendingOrdersScreen = () => {
   const navigation = useNavigation<StackNavigationProp<MainStackParamList>>();
+  const route = useRoute();
   const [orders, setOrders] = useState<PendingOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -113,6 +121,10 @@ const PendingOrdersScreen = () => {
               // Extract just the date part if it's an ISO string
               return dateString.split('T')[0];
             };
+
+            order.items.forEach((item, index) => {
+              console.log(`Item ${index + 1} unit:`, item.unitName);
+            });
 
             return {
               ...order,
@@ -287,30 +299,28 @@ const PendingOrdersScreen = () => {
     }
   };
 
+  // const handleViewDetails = (order: PendingOrder) => {
+  //   // Use "as any" to bypass the type checking since the component
+  //   // expects a different structure than the type definition
+  //   navigation.navigate('OrderDetailsScreen' as any, {order});
+  // };
+
   const handleViewDetails = (order: PendingOrder) => {
-    // Use "as any" to bypass the type checking since the component
-    // expects a different structure than the type definition
-    navigation.navigate('OrderDetailsScreen' as any, {order});
+    navigation.navigate('OrderDetailsScreen' as any, {
+      order,
+      unitName: order.unitName, // Add this line
+    });
   };
 
   const renderOrderCard = ({item}: {item: PendingOrder}) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => handleOrderPress(item)}
-      activeOpacity={0.7}>
+    <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View>
           <Text style={styles.orderNo}>Order No: {item.orderNo}</Text>
           <Text style={styles.totalItems}>Items: {item.totalItems}</Text>
         </View>
-        <View style={styles.statusContainer}>
-          <View
-            style={[
-              styles.statusBadge,
-              // {
-              //   backgroundColor: item.status === 'NEW' ? '#e0f2fe' : '#f3f4f6',
-              // },
-            ]}>
+        {/* <View style={styles.statusContainer}>
+          <View style={[styles.statusBadge]}>
             <Text
               style={[
                 styles.statusText,
@@ -319,7 +329,7 @@ const PendingOrdersScreen = () => {
               {item.status}
             </Text>
           </View>
-        </View>
+        </View> */}
       </View>
 
       <View style={styles.dateContainer}>
@@ -338,6 +348,7 @@ const PendingOrdersScreen = () => {
         <Text style={styles.transporterValue} numberOfLines={1}>
           {item.transporterName || 'No transporter'}
         </Text>
+        {/* Keep TouchableOpacity only on View Details */}
         <TouchableOpacity
           style={styles.viewDetails}
           onPress={() => handleViewDetails(item)}>
@@ -345,7 +356,7 @@ const PendingOrdersScreen = () => {
           <MaterialIcons name="chevron-right" size={16} color="#0284c7" />
         </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   const renderFooter = () => {
@@ -381,40 +392,40 @@ const PendingOrdersScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f3f4f6" />
-      {/* 
- <View style={styles.titleContainer}>
- <Text style={styles.screenTitle}>Order Status</Text>
- </View> */}
+    <LayoutWrapper showHeader={true} showTabBar={false} route={route}>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#f3f4f6" />
 
-      <FlatList
-        data={orders}
-        keyExtractor={item => `order-${item.orderId}`}
-        renderItem={renderOrderCard}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        onEndReached={loadMoreOrders}
-        onEndReachedThreshold={0.3}
-        ListFooterComponent={renderFooter}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialIcons name="history" size={64} color="#d1d5db" />
-            <Text style={styles.emptyText}>No order history found</Text>
-            {customerID ? (
-              <Text style={styles.customerIdText}>
-                Customer ID: {customerID}
-              </Text>
-            ) : (
-              <Text style={styles.errorText}>Customer ID not found</Text>
-            )}
-          </View>
-        }
-      />
-    </SafeAreaView>
+        <FlatList
+          // data={orders}
+          // keyExtractor={item => `order-${item.orderId}`}
+          data={orders.filter(order => order.totalItems > 0)} // Add this filter
+          keyExtractor={item => `order-${item.orderId}`}
+          renderItem={renderOrderCard}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          onEndReached={loadMoreOrders}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={renderFooter}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="history" size={64} color="#d1d5db" />
+              <Text style={styles.emptyText}>No order history found</Text>
+              {customerID ? (
+                <Text style={styles.customerIdText}>
+                  Customer ID: {customerID}
+                </Text>
+              ) : (
+                <Text style={styles.errorText}>Customer ID not found</Text>
+              )}
+            </View>
+          }
+        />
+      </SafeAreaView>
+    </LayoutWrapper>
   );
 };
 
@@ -451,6 +462,7 @@ const generateMockData = (): PendingOrder[] => {
         requestedQty: Math.floor(Math.random() * 50) + 10,
         availableQty: Math.floor(Math.random() * 100) + 20,
         status: 'NEW',
+        unitName: '',
       });
     }
 
@@ -467,6 +479,7 @@ const generateMockData = (): PendingOrder[] => {
       totalItems,
       totalQuantity: items.reduce((sum, item) => sum + item.requestedQty, 0),
       items,
+      unitName: '',
     });
   }
   return mockOrders;
