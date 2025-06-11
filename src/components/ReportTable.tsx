@@ -40,107 +40,131 @@ const ReportTable = ({
   // Helper function for theme colors
   const getThemeColor = () => (isInward ? '#F48221' : '#4682B4');
 
+  // Helper function to format date to dd/mm/yy
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '-';
+
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = String(date.getFullYear()).slice(-2);
+
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      return '-';
+    }
+  };
+
   return (
     <View style={styles.tableContainer}>
       <ScrollView
+        horizontal={true}
+        showsHorizontalScrollIndicator={false}
+        style={styles.headerScrollView}>
+        <View style={[styles.tableHeader, {backgroundColor: '#f8f8f8'}]}>
+          <Text
+            style={[
+              styles.tableHeaderCell,
+              {width: columnWidths.number, color: getThemeColor()},
+            ]}>
+            Sr.No
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderCell,
+              {width: columnWidths.unit, color: getThemeColor()},
+            ]}>
+            Unit
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderCell,
+              {width: columnWidths.date, color: getThemeColor()},
+            ]}>
+            {isInward ? 'Inward Date' : 'Outward Date'}
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderCell,
+              {width: columnWidths.inwardOutwardNo, color: getThemeColor()},
+            ]}>
+            {isInward ? 'Inward No' : 'Outward No'}
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderCell,
+              {width: columnWidths.lotNo, color: getThemeColor()},
+            ]}>
+            Lot No
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderCell,
+              {width: columnWidths.itemName, color: getThemeColor()},
+            ]}>
+            Item Name
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderCell,
+              {width: columnWidths.vakkalNo, color: getThemeColor()},
+            ]}>
+            Vakkal No
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderCell,
+              {width: columnWidths.itemMark, color: getThemeColor()},
+            ]}>
+            Item Mark
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderCell,
+              {width: columnWidths.qty, color: getThemeColor()},
+            ]}>
+            Qty
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderCell,
+              {width: columnWidths.remark, color: getThemeColor()},
+            ]}>
+            Remark
+          </Text>
+          <Text
+            style={[
+              styles.tableHeaderCell,
+              {width: columnWidths.vehicle, color: getThemeColor()},
+            ]}>
+            Vehicle
+          </Text>
+          {/* Show Delivered To column only for Outward */}
+          {!isInward && (
+            <Text
+              style={[
+                styles.tableHeaderCell,
+                {width: columnWidths.deliveredTo, color: getThemeColor()},
+              ]}>
+              Delivered To
+            </Text>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Scrollable Content */}
+      <ScrollView
         ref={tableRef}
         horizontal={true}
-        showsHorizontalScrollIndicator={true}>
+        showsHorizontalScrollIndicator={true}
+        style={styles.contentScrollView}>
         <ScrollView
           nestedScrollEnabled={true}
           showsVerticalScrollIndicator={true}>
           <View style={styles.tableWrapper}>
-            {/* Table Header */}
-            <View style={[styles.tableHeader, {backgroundColor: '#f8f8f8'}]}>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  {width: columnWidths.number, color: getThemeColor()},
-                ]}>
-                Sr.No
-              </Text>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  {width: columnWidths.unit, color: getThemeColor()},
-                ]}>
-                Unit
-              </Text>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  {width: columnWidths.date, color: getThemeColor()},
-                ]}>
-                {isInward ? 'Inward Date' : 'Outward Date'}
-              </Text>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  {width: columnWidths.inwardOutwardNo, color: getThemeColor()},
-                ]}>
-                {isInward ? 'Inward No' : 'Outward No'}
-              </Text>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  {width: columnWidths.lotNo, color: getThemeColor()},
-                ]}>
-                Lot No
-              </Text>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  {width: columnWidths.itemName, color: getThemeColor()},
-                ]}>
-                Item Name
-              </Text>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  {width: columnWidths.vakkalNo, color: getThemeColor()},
-                ]}>
-                Vakkal No
-              </Text>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  {width: columnWidths.itemMark, color: getThemeColor()},
-                ]}>
-                Item Mark
-              </Text>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  {width: columnWidths.qty, color: getThemeColor()},
-                ]}>
-                Qty
-              </Text>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  {width: columnWidths.remark, color: getThemeColor()},
-                ]}>
-                Remark
-              </Text>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  {width: columnWidths.vehicle, color: getThemeColor()},
-                ]}>
-                Vehicle
-              </Text>
-              {/* Show Delivered To column only for Outward */}
-              {!isInward && (
-                <Text
-                  style={[
-                    styles.tableHeaderCell,
-                    {width: columnWidths.deliveredTo, color: getThemeColor()},
-                  ]}>
-                  Delivered To
-                </Text>
-              )}
-            </View>
-
             {/* Table Rows */}
             {reportData.map((item, index) => (
               <View
@@ -164,12 +188,8 @@ const ReportTable = ({
                 </Text>
                 <Text style={[styles.tableCell, {width: columnWidths.date}]}>
                   {isInward
-                    ? item.GRN_DATE
-                      ? new Date(item.GRN_DATE).toLocaleDateString()
-                      : '-'
-                    : item.OUTWARD_DATE
-                    ? new Date(item.OUTWARD_DATE).toLocaleDateString()
-                    : '-'}
+                    ? formatDate(item.GRN_DATE)
+                    : formatDate(item.OUTWARD_DATE)}
                 </Text>
 
                 {isInward ? (
@@ -198,30 +218,13 @@ const ReportTable = ({
                     </Text>
                   </TouchableOpacity>
                 ) : (
-                  <TouchableOpacity
+                  <Text
                     style={[
-                      styles.tableCellContainer,
+                      styles.tableCell,
                       {width: columnWidths.inwardOutwardNo},
-                    ]}
-                    onPress={() =>
-                      onInwardOutwardNoPress && onInwardOutwardNoPress(item)
-                    }
-                    disabled={!(onInwardOutwardNoPress && item.OUTWARD_NO)}>
-                    <Text
-                      style={[
-                        styles.tableCell,
-                        styles.clickableCell,
-                        {
-                          color:
-                            onInwardOutwardNoPress && item.OUTWARD_NO
-                              ? getThemeColor()
-                              : '#334155',
-                          width: '100%',
-                        },
-                      ]}>
-                      {item.OUTWARD_NO || '-'}
-                    </Text>
-                  </TouchableOpacity>
+                    ]}>
+                    {item.OUTWARD_NO || '-'}
+                  </Text>
                 )}
 
                 <Text style={[styles.tableCell, {width: columnWidths.lotNo}]}>
@@ -275,6 +278,12 @@ const styles = StyleSheet.create({
     margin: 0,
     borderRadius: 0,
   },
+  headerScrollView: {
+    maxHeight: 50,
+  },
+  contentScrollView: {
+    flex: 1,
+  },
   tableWrapper: {
     flexDirection: 'column',
   },
@@ -294,7 +303,7 @@ const styles = StyleSheet.create({
   tableRow: {
     flexDirection: 'row',
     paddingVertical: 14,
-    paddingHorizontal: 0, // Changed from 8 to 0 to align with headers
+    paddingHorizontal: 0,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
@@ -313,7 +322,6 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     fontWeight: '500',
   },
-
 });
 
 export default ReportTable;
